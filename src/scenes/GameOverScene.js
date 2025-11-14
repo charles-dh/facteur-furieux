@@ -157,16 +157,13 @@ export default class GameOverScene extends Phaser.Scene {
   }
 
   /**
-   * Restart the game with same configuration
+   * Restart the game
+   * M5: Returns to MenuScene (allows changing configuration)
    */
   restartGame() {
-    console.log('Restarting game');
+    console.log('Returning to menu');
 
-    // For M4, restart directly to GameScene with same config
-    // In M5, this will return to MenuScene instead
-    this.scene.start('GameScene', {
-      selectedTables: this.selectedTables,
-      playerName: this.playerName
-    });
+    // M5: Return to MenuScene (player can choose different tables)
+    this.scene.start('MenuScene');
   }
 }
