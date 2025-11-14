@@ -36,34 +36,74 @@ This milestone establishes the visual foundation of Math Racer by implementing a
 ---
 
 ### 1.2 Implement Track System
-**Goal:** Programmatically generate a curved racing track
+**Goal:** Create a fixed oval racing track
 
 **Tasks:**
 - [ ] Create `src/systems/Track.js` class
-- [ ] Define track path using Phaser.Curves.Path with 6-8 control points
-- [ ] Create closed loop using spline curves (non-circular, organic shape)
+- [ ] Define track path using Phaser.Curves.Path with fixed control points
+- [ ] Create closed loop using spline curves (roughly oval shape)
 - [ ] Implement `getPositionAt(t)` method that converts 0-1 progress to {x, y, angle}
-- [ ] Calculate total track length
+- [ ] Calculate total track length using `path.getLength()`
 - [ ] Add method to get tangent angle at any position
 
-**Technical Notes:**
-- Use `Phaser.Curves.Spline` for smooth curved path
-- Ensure path is closed (start point = end point)
-- Path should fill most of the canvas but leave margins
-- Example control points for reference (can be adjusted):
-  ```javascript
-  const points = [
-    new Phaser.Math.Vector2(400, 100),  // Top center
-    new Phaser.Math.Vector2(650, 200),  // Top right
-    new Phaser.Math.Vector2(700, 450),  // Right middle
-    new Phaser.Math.Vector2(500, 650),  // Bottom middle
-    new Phaser.Math.Vector2(200, 600),  // Bottom left
-    new Phaser.Math.Vector2(100, 350),  // Left middle
-    new Phaser.Math.Vector2(200, 150)   // Top left
-  ];
-  ```
+**Track Design:**
 
-**Deliverable:** Track class that can provide position/angle at any progress value (0-1)
+**IMPORTANT:** The track is fixed for MVP - same track every time, not randomly generated.
+
+**Design criteria for a good track:**
+- **Roughly oval shape** - familiar and easy to understand
+- **Smooth curves** - no hairpin turns (avoid >90° angles)
+- **Natural flow** - control points create a good racing line
+- **Visible start/finish** - positioned in a straight section, not mid-curve
+- **Good use of space** - fills canvas but leaves margins
+
+**Fixed Track Configuration:**
+```javascript
+// src/systems/Track.js
+class Track {
+  constructor(scene) {
+    this.scene = scene;
+
+    // Fixed oval track - same every time
+    const points = [
+      new Phaser.Math.Vector2(400, 100),   // Top center (start/finish)
+      new Phaser.Math.Vector2(600, 150),   // Top-right curve entry
+      new Phaser.Math.Vector2(700, 400),   // Right side
+      new Phaser.Math.Vector2(600, 650),   // Bottom-right curve
+      new Phaser.Math.Vector2(400, 700),   // Bottom center
+      new Phaser.Math.Vector2(200, 650),   // Bottom-left curve
+      new Phaser.Math.Vector2(100, 400),   // Left side
+      new Phaser.Math.Vector2(200, 150)    // Top-left curve
+    ];
+
+    // Create closed spline path
+    this.path = new Phaser.Curves.Path();
+    this.path.add(new Phaser.Curves.Spline(points));
+    this.path.closePath(); // Ensure closed loop
+
+    // Calculate total track length in pixels
+    this.length = this.path.getLength(); // Using Phaser's built-in method
+  }
+
+  getPositionAt(t) {
+    // t is progress from 0-1
+    const point = this.path.getPoint(t);
+    const tangent = this.path.getTangent(t);
+    const angle = Math.atan2(tangent.y, tangent.x);
+
+    return { x: point.x, y: point.y, angle: angle };
+  }
+}
+```
+
+**Why this design:**
+- **Oval shape:** Familiar, easy to navigate, good for beginners
+- **8 control points:** Creates smooth curves without complexity
+- **Symmetric:** Roughly balanced left/right, top/bottom
+- **Start at top:** Clear visual reference point
+- **No tight turns:** All curves are gentle (< 45° change per section)
+
+**Deliverable:** Track class with fixed oval path that provides position/angle at any progress value (0-1)
 
 ---
 

@@ -50,13 +50,19 @@ This milestone replaces the constant-speed movement from M1 with a realistic mom
 **Key Properties:**
 ```javascript
 class VehiclePhysics {
-  position = 0        // 0-1 progress along track
-  velocity = 0        // Current speed (can be 0)
+  position = 0        // 0-1 progress along track (0 = start, 1 = full lap)
+  velocity = 0        // Progress per second (0-1 scale, NOT pixels!)
   acceleration = 0    // Current frame acceleration
-  maxSpeed = 5        // From PHYSICS.MAX_SPEED
-  friction = 0.98     // From PHYSICS.FRICTION
+  maxSpeed = 0.2      // From PHYSICS.MAX_SPEED (0.2 = 20% of track per second)
+  friction = 0.98     // From PHYSICS.FRICTION (multiplier per frame)
 }
 ```
+
+**IMPORTANT - Velocity Units:**
+- Velocity represents **progress per second** (0-1 scale), NOT pixels per second
+- Example: `velocity = 0.2` means "complete 20% of track per second" (~5 seconds per lap)
+- Example: `velocity = 0.1` means "complete 10% of track per second" (~10 seconds per lap)
+- This makes physics track-length independent and easier to tune
 
 **Deliverable:** Physics class with tunable movement mechanics
 
@@ -185,9 +191,10 @@ this.speedText.setText(`Speed: ${this.vehiclePhysics.velocity.toFixed(2)}`);
 **Constants to Tune (in `src/config/constants.js`):**
 ```javascript
 export const PHYSICS = {
-  MAX_SPEED: 5,              // Try values: 3, 4, 5, 6, 7
+  MAX_SPEED: 0.2,            // Try values: 0.1, 0.15, 0.2, 0.25, 0.3
+                             // (progress per second: higher = faster laps)
   FRICTION: 0.98,            // Try values: 0.95, 0.96, 0.97, 0.98, 0.99
-  BASE_ACCELERATION: 0.005,  // Try values: 0.003, 0.005, 0.008, 0.01
+  BASE_ACCELERATION: 0.01,   // Try values: 0.005, 0.01, 0.015, 0.02
   MIN_VELOCITY: 0            // Must stay 0 (car can stop)
 };
 ```
@@ -240,6 +247,88 @@ export const PHYSICS = {
 - Position should wrap from 1.0 to 0.0 smoothly ✓
 
 **Deliverable:** Validated physics system ready for problem integration
+
+---
+
+### 2.7 Debug Mode (Optional but Recommended)
+**Goal:** Add visual debug overlay for physics tuning
+
+**Tasks:**
+- [ ] Add debug panel toggle (press D key)
+- [ ] Display current velocity
+- [ ] Display current acceleration
+- [ ] Display current position (0-1)
+- [ ] Display boost multiplier when applied
+- [ ] Color-code values (yellow = at limit, white = normal)
+- [ ] Make panel toggleable and non-intrusive
+
+**Implementation:**
+```javascript
+// In GameScene.create()
+this.debugMode = false;
+
+// Toggle debug mode with D key
+this.input.keyboard.on('keydown-D', () => {
+  this.debugMode = !this.debugMode;
+  console.log('Debug mode:', this.debugMode ? 'ON' : 'OFF');
+});
+
+// Create debug text panel (bottom-left corner)
+this.debugText = this.add.text(10, 650, '', {
+  fontFamily: 'monospace',
+  fontSize: '12px',
+  color: '#00ff00',
+  backgroundColor: '#000000',
+  padding: { x: 8, y: 8 }
+}).setDepth(1000); // Ensure it's on top
+
+// In GameScene.update()
+updateDebug() {
+  if (!this.debugMode) {
+    this.debugText.setVisible(false);
+    return;
+  }
+
+  this.debugText.setVisible(true);
+  const p = this.vehiclePhysics;
+
+  // Color-code velocity (yellow if at max)
+  const velColor = p.velocity >= p.maxSpeed ? '#ffff00' : '#ffffff';
+
+  const debugInfo = [
+    'DEBUG MODE (Press D to toggle)',
+    '─'.repeat(35),
+    `Velocity:     ${p.velocity.toFixed(4)} / ${p.maxSpeed}`,
+    `Acceleration: ${p.acceleration.toFixed(6)}`,
+    `Position:     ${p.position.toFixed(4)}`,
+    `Friction:     ${PHYSICS.FRICTION}`,
+    `Max Speed:    ${PHYSICS.MAX_SPEED} (${(1/PHYSICS.MAX_SPEED).toFixed(1)}s/lap)`
+  ].join('\n');
+
+  this.debugText.setText(debugInfo);
+}
+```
+
+**Benefits:**
+- **Visual confirmation** - See exact physics values in real-time
+- **Tuning aid** - Immediately see effect of constant changes
+- **Boost verification** - Confirm boost actually applies
+- **Position tracking** - Verify lap progress calculation
+- **No guesswork** - Know exactly what's happening under the hood
+
+**Usage during development:**
+1. Press D to enable debug mode
+2. Adjust constants in `constants.js`
+3. Reload game (Vite hot-reload)
+4. Observe new values in debug panel
+5. Test feel and iterate
+
+**For production:**
+- Leave debug mode in (doesn't hurt)
+- Users can enable if curious
+- Or comment out D key listener to disable
+
+**Deliverable:** Optional debug overlay for easier physics tuning
 
 ---
 
@@ -308,9 +397,10 @@ update(delta) {
   this.velocity = Math.max(0, Math.min(this.velocity, this.maxSpeed));
 
   // 4. Update position based on velocity
-  // Note: delta is in milliseconds, convert to seconds
-  const deltaSeconds = delta / 1000;
-  this.position += (this.velocity * deltaSeconds) / trackLength;
+  // IMPORTANT: velocity is already in progress per second (0-1 scale)
+  // So we just multiply by delta time - NO division by trackLength needed
+  const deltaSeconds = delta / 1000; // Convert milliseconds to seconds
+  this.position += this.velocity * deltaSeconds;
 
   // 5. Handle lap wrapping
   if (this.position >= 1.0) {
@@ -348,12 +438,19 @@ Ensure these exist in `src/config/constants.js`:
 
 ```javascript
 export const PHYSICS = {
-  MAX_SPEED: 5,                  // Maximum velocity units per second
+  MAX_SPEED: 0.2,                // Maximum velocity (progress per second, 0-1 scale)
+                                 // 0.2 = 20% of track per second = ~5 seconds per lap
   FRICTION: 0.98,                // Applied every frame (0.98 = retains 98% velocity)
-  BASE_ACCELERATION: 0.005,      // Base acceleration amount
+  BASE_ACCELERATION: 0.01,       // Base acceleration amount (in progress per second²)
   MIN_VELOCITY: 0                // Car CAN stop completely (zero velocity)
 };
 ```
+
+**Tuning guide for MAX_SPEED:**
+- `0.1` = 10% per second = ~10 seconds per lap (slow)
+- `0.2` = 20% per second = ~5 seconds per lap (moderate)
+- `0.3` = 30% per second = ~3.3 seconds per lap (fast)
+- `0.5` = 50% per second = ~2 seconds per lap (very fast)
 
 If missing, add them. These are the starting values and will be tuned in milestone 2.5.
 
