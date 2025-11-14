@@ -4,6 +4,7 @@ import { TRACK, CAR, PHYSICS, TIMING } from '../config/constants.js';
 import Track from '../systems/Track.js';
 import VehiclePhysics from '../systems/VehiclePhysics.js';
 import MathProblem from '../systems/MathProblem.js';
+import StatisticsTracker from '../systems/StatisticsTracker.js';
 
 /**
  * GameScene - Main gameplay scene
@@ -17,6 +18,17 @@ import MathProblem from '../systems/MathProblem.js';
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
+  }
+
+  /**
+   * Initialize scene with configuration data
+   * M4: Receives player name and selected tables from GameOverScene
+   * M5: Will receive from MenuScene instead
+   */
+  init(data) {
+    this.selectedTables = data.selectedTables || [2, 3, 4, 5];
+    this.playerName = data.playerName || 'Pilote';
+    console.log('GameScene initialized with tables:', this.selectedTables, 'Player:', this.playerName);
   }
 
   create() {
@@ -44,14 +56,23 @@ export default class GameScene extends Phaser.Scene {
     this.vehiclePhysics = new VehiclePhysics();
     console.log('Physics created');
 
+    // M4: Create statistics tracker
+    this.stats = new StatisticsTracker();
+    this.previousPosition = 0; // For lap detection
+    console.log('Statistics tracker created');
+
     // M3: Create math problem system
-    // For MVP, using tables 2-5 for testing (will be configurable in M5)
-    this.mathProblem = new MathProblem([2, 3, 4, 5]);
-    console.log('Math problem system created');
+    // M4: Now uses selectedTables from init() instead of hardcoded values
+    this.mathProblem = new MathProblem(this.selectedTables);
+    console.log('Math problem system created with tables:', this.selectedTables);
 
     // M3: Create problem UI overlay
     this.createProblemUI();
     console.log('Problem UI created');
+
+    // M4: Create HUD (lap counter, stats display)
+    this.createHUD();
+    console.log('HUD created');
 
     // M3: Initialize answer input
     this.currentAnswer = '';
@@ -93,8 +114,61 @@ export default class GameScene extends Phaser.Scene {
     this.startNewProblem();
     console.log('First problem started');
 
+    // M4: Start race timer (use Phaser time for consistency)
+    this.stats.startRace(this.time.now);
+
     console.log('=== GameScene.create() completed ===');
     console.log('GameScene created! Answer problems to boost, D for debug');
+  }
+
+  /**
+   * Create HUD (Heads-Up Display)
+   * M4: Displays lap counter, accuracy, and timing info
+   */
+  createHUD() {
+    // Top-left: Lap counter and accuracy
+    this.lapText = this.add.text(20, 20, 'Lap: 1/3', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '16px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+
+    this.accuracyText = this.add.text(20, 50, 'Accuracy: 0%', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '12px',
+      color: '#ffff00',
+      stroke: '#000000',
+      strokeThickness: 2
+    });
+
+    this.answersText = this.add.text(20, 75, 'Correct: 0 / 0', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '10px',
+      color: '#aaaaaa',
+      stroke: '#000000',
+      strokeThickness: 2
+    });
+
+    // Top-right: Lap times
+    this.lapTimesText = this.add.text(780, 20, '', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '12px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+      align: 'right'
+    }).setOrigin(1, 0);
+
+    this.totalTimeText = this.add.text(780, 75, 'Total: 0.000s', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '10px',
+      color: '#aaaaaa',
+      stroke: '#000000',
+      strokeThickness: 2,
+      align: 'right'
+    }).setOrigin(1, 0);
   }
 
   /**
@@ -202,6 +276,7 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Handle correct answer
    * M3.6: Calculate boost, apply to physics, show feedback, next problem
+   * M4: Record statistics
    */
   handleCorrectAnswer() {
     // 1. Calculate boost based on remaining timer
@@ -213,15 +288,18 @@ export default class GameScene extends Phaser.Scene {
     // 3. Stop timer
     this.mathProblem.timerActive = false;
 
-    // 4. Show feedback
+    // 4. M4: Record correct answer in statistics
+    this.stats.recordCorrectAnswer();
+
+    // 5. Show feedback
     this.feedbackText.setText(`Correct! +${boostStrength.toFixed(2)} boost`);
     this.feedbackText.setColor('#00ff00');
 
-    // 5. Clear answer
+    // 6. Clear answer
     this.currentAnswer = '';
     this.answerText.setText('');
 
-    // 6. Schedule next problem after delay
+    // 7. Schedule next problem after delay
     this.time.delayedCall(TIMING.CORRECT_ANSWER_DELAY, () => {
       this.startNewProblem();
     });
@@ -230,17 +308,21 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Handle incorrect answer
    * M3.6: Show feedback, timer keeps running, can retry
+   * M4: Record statistics
    */
   handleIncorrectAnswer() {
-    // 1. Show feedback (timer keeps running!)
+    // 1. M4: Record incorrect answer in statistics
+    this.stats.recordIncorrectAnswer();
+
+    // 2. Show feedback (timer keeps running!)
     this.feedbackText.setText('Try again!');
     this.feedbackText.setColor('#ff0000');
 
-    // 2. Clear answer input so user can retry
+    // 3. Clear answer input so user can retry
     this.currentAnswer = '';
     this.answerText.setText('_');
 
-    // 3. Timer continues counting down
+    // 4. Timer continues counting down
     // Player can retry immediately
   }
 
@@ -379,6 +461,9 @@ export default class GameScene extends Phaser.Scene {
     // This handles velocity, friction, acceleration, and position updates
     this.vehiclePhysics.update(delta);
 
+    // M4: Detect lap completion
+    this.detectLapCompletion();
+
     // M3: Update problem timer
     this.mathProblem.updateTimer(delta);
 
@@ -398,8 +483,94 @@ export default class GameScene extends Phaser.Scene {
     // M2.4: Update speed indicator
     this.speedText.setText(`Speed: ${this.vehiclePhysics.velocity.toFixed(2)}`);
 
+    // M4: Update HUD
+    this.updateHUD();
+
     // M2.7: Update debug panel
     this.updateDebug();
+  }
+
+  /**
+   * Detect lap completion
+   * M4: Checks if car crossed start/finish line (forward direction)
+   */
+  detectLapCompletion() {
+    const currentPos = this.vehiclePhysics.position;
+    const previousPos = this.previousPosition;
+
+    // Detect wrap-around from ~1.0 to ~0.0 (forward direction)
+    if (previousPos > 0.9 && currentPos < 0.1) {
+      this.onLapComplete();
+    }
+
+    this.previousPosition = currentPos;
+  }
+
+  /**
+   * Handle lap completion
+   * M4: Record lap time, check for game over
+   */
+  onLapComplete() {
+    const lapData = this.stats.completeLap(this.time.now);
+
+    console.log(`Lap ${lapData.lapNumber} complete: ${this.stats.formatTime(lapData.lapTime)}`);
+
+    // Check if race is complete (3 laps)
+    if (lapData.isFinalLap) {
+      this.endRace();
+    }
+  }
+
+  /**
+   * End the race and transition to GameOver scene
+   * M4: Pass statistics to results screen
+   */
+  endRace() {
+    console.log('Race complete! Transitioning to GameOver scene');
+
+    // Small delay before transition for dramatic effect
+    this.time.delayedCall(500, () => {
+      this.scene.start('GameOverScene', {
+        results: this.stats.getResults(),
+        playerName: this.playerName,
+        selectedTables: this.selectedTables
+      });
+    });
+  }
+
+  /**
+   * Update HUD display
+   * M4: Updates lap counter, accuracy, and timing displays
+   */
+  updateHUD() {
+    // Update lap counter
+    this.lapText.setText(`Lap: ${this.stats.currentLap}/3`);
+
+    // Update accuracy
+    this.accuracyText.setText(`Accuracy: ${this.stats.getAccuracy()}%`);
+
+    // Update answer counts
+    this.answersText.setText(`Correct: ${this.stats.correctAnswers} / ${this.stats.totalAnswers}`);
+
+    // Update lap times (right side)
+    const currentLapTime = this.stats.getCurrentLapTime(this.time.now);
+    const lastLapTime = this.stats.getLastLapTime();
+
+    let timesText = `Current: ${this.stats.formatTime(currentLapTime)}\n`;
+
+    if (lastLapTime !== null) {
+      timesText += `Last: ${this.stats.formatTime(lastLapTime)}\n`;
+    }
+
+    if (this.stats.bestLapTime !== Infinity) {
+      timesText += `Best: ${this.stats.formatTime(this.stats.bestLapTime)}`;
+    }
+
+    this.lapTimesText.setText(timesText);
+
+    // Update total time
+    const totalTime = this.time.now - this.stats.raceStartTime;
+    this.totalTimeText.setText(`Total: ${this.stats.formatTime(totalTime)}`);
   }
 
   /**
