@@ -25,13 +25,13 @@ This milestone establishes the visual foundation of Math Racer by implementing a
 **Goal:** Get Phaser rendering a basic scene
 
 **Tasks:**
-- [ ] Create `src/scenes/GameScene.js` with Phaser scene boilerplate
-- [ ] Add GameScene to main.js scene configuration
-- [ ] Implement `create()` method with background rendering (grass green)
-- [ ] Add simple test text to verify scene is loading
-- [ ] Test that scene renders when running dev server
+- [x] Create `src/scenes/GameScene.js` with Phaser scene boilerplate
+- [x] Add GameScene to main.js scene configuration
+- [x] Implement `create()` method with background rendering (grass green)
+- [x] Add simple test text to verify scene is loading
+- [x] Test that scene renders when running dev server
 
-**Deliverable:** Blank green canvas with "Math Racer" text visible
+**Deliverable:** Blank green canvas with "Math Racer" text visible ✅
 
 ---
 
@@ -39,12 +39,12 @@ This milestone establishes the visual foundation of Math Racer by implementing a
 **Goal:** Create a fixed oval racing track
 
 **Tasks:**
-- [ ] Create `src/systems/Track.js` class
-- [ ] Define track path using Phaser.Curves.Path with fixed control points
-- [ ] Create closed loop using spline curves (roughly oval shape)
-- [ ] Implement `getPositionAt(t)` method that converts 0-1 progress to {x, y, angle}
-- [ ] Calculate total track length using `path.getLength()`
-- [ ] Add method to get tangent angle at any position
+- [x] Create `src/systems/Track.js` class
+- [x] Define track path using Phaser.Curves.Path with fixed control points
+- [x] Create closed loop using spline curves (roughly oval shape)
+- [x] Implement `getPositionAt(t)` method that converts 0-1 progress to {x, y, angle}
+- [x] Calculate total track length using `path.getLength()`
+- [x] Add method to get tangent angle at any position
 
 **Track Design:**
 
@@ -103,7 +103,7 @@ class Track {
 - **Start at top:** Clear visual reference point
 - **No tight turns:** All curves are gentle (< 45° change per section)
 
-**Deliverable:** Track class with fixed oval path that provides position/angle at any progress value (0-1)
+**Deliverable:** Track class with fixed oval path that provides position/angle at any progress value (0-1) ✅
 
 ---
 
@@ -111,11 +111,11 @@ class Track {
 **Goal:** Draw the track visually using code-generated graphics
 
 **Tasks:**
-- [ ] Create Phaser.Graphics object in GameScene
-- [ ] Draw track outline using thick stroke (60px width, gray color)
-- [ ] Add dashed center line (white, 3px width)
-- [ ] Draw start/finish line (red rectangle perpendicular to track)
-- [ ] Position start/finish at progress = 0
+- [x] Create Phaser.Graphics object in GameScene
+- [x] Draw track outline using thick stroke (60px width, gray color)
+- [x] Add dashed center line (white, 3px width)
+- [x] Draw start/finish line (red rectangle perpendicular to track)
+- [x] Position start/finish at progress = 0
 
 **Visual Style (from constants and colors):**
 - Track base: 60px wide, color `0x404040` (gray)
@@ -127,7 +127,7 @@ class Track {
 - Use `graphics.setLineDash([10, 10])` for dashed center line
 - Start/finish line should be perpendicular to track tangent at progress = 0
 
-**Deliverable:** Visible racing track with clear start/finish line
+**Deliverable:** Visible racing track with clear start/finish line ✅
 
 ---
 
@@ -135,11 +135,11 @@ class Track {
 **Goal:** Create a simple geometric car sprite
 
 **Tasks:**
-- [ ] Create car graphics in GameScene using Phaser.Graphics
-- [ ] Draw simple car shape (triangle or rectangle, 12×20px)
-- [ ] Use red color (`0xff0000`) from color palette
-- [ ] Position car at track start (progress = 0)
-- [ ] Rotate car to match track tangent angle
+- [x] Create car graphics in GameScene using Phaser.Graphics
+- [x] Draw simple car shape (triangle or rectangle, 12×20px)
+- [x] Use red color (`0xff0000`) from color palette
+- [x] Position car at track start (progress = 0)
+- [x] Rotate car to match track tangent angle
 
 **Car Design Options:**
 ```javascript
@@ -155,7 +155,7 @@ graphics.fillRect(-6, -10, 12, 20);
 - Forward direction is typically up (0 degrees = north in Phaser)
 - Car should visibly point in direction of travel
 
-**Deliverable:** Red geometric car positioned and oriented on track
+**Deliverable:** Red geometric car positioned and oriented on track ✅
 
 ---
 
@@ -163,12 +163,12 @@ graphics.fillRect(-6, -10, 12, 20);
 **Goal:** Make car move along track at constant speed
 
 **Tasks:**
-- [ ] Add `progress` property to track car position (0 to 1)
-- [ ] Implement `update()` loop in GameScene
-- [ ] Increment progress each frame based on constant speed
-- [ ] Convert progress to world position using Track.getPositionAt()
-- [ ] Update car sprite position and rotation each frame
-- [ ] Handle loop: when progress >= 1, reset to 0
+- [x] Add `progress` property to track car position (0 to 1)
+- [x] Implement `update()` loop in GameScene
+- [x] Increment progress each frame based on constant speed
+- [x] Convert progress to world position using Track.getPositionAt()
+- [x] Update car sprite position and rotation each frame
+- [x] Handle loop: when progress >= 1, reset to 0
 
 **Movement Logic:**
 ```javascript
@@ -187,7 +187,7 @@ this.car.setRotation(position.angle);
 - Initial speed: 2 units per second (will be replaced by physics in M2)
 - Update uses delta time for frame-rate independence
 
-**Deliverable:** Car smoothly following the track path in a continuous loop
+**Deliverable:** Car smoothly following the track path in a continuous loop ✅
 
 ---
 
@@ -195,22 +195,22 @@ this.car.setRotation(position.angle);
 **Goal:** Refine appearance and validate smooth gameplay
 
 **Tasks:**
-- [ ] Verify car movement is smooth at 60 FPS
-- [ ] Ensure car stays centered on track (not offset)
-- [ ] Adjust track control points if path looks awkward
-- [ ] Verify start/finish line is clearly visible
-- [ ] Test that car orientation matches path direction at all points
-- [ ] Add any visual improvements (track shadows, better colors)
-- [ ] Document any tuning parameters in constants.js
+- [x] Verify car movement is smooth at 60 FPS
+- [x] Ensure car stays centered on track (not offset)
+- [x] Adjust track control points if path looks awkward
+- [x] Verify start/finish line is clearly visible
+- [x] Test that car orientation matches path direction at all points
+- [x] Add any visual improvements (track shadows, better colors)
+- [x] Document any tuning parameters in constants.js
 
 **Testing Checklist:**
-- [ ] Track is fully visible on screen (no clipping)
-- [ ] Car completes full lap smoothly
-- [ ] No visual stuttering or jumps
-- [ ] Track shape is interesting (not too simple, not too complex)
-- [ ] Colors are readable and match retro arcade aesthetic
+- [x] Track is fully visible on screen (no clipping)
+- [x] Car completes full lap smoothly
+- [x] No visual stuttering or jumps
+- [x] Track shape is interesting (not too simple, not too complex)
+- [x] Colors are readable and match retro arcade aesthetic
 
-**Deliverable:** Polished, playable prototype ready for Milestone 2
+**Deliverable:** Polished, playable prototype ready for Milestone 2 ✅
 
 ---
 
@@ -332,8 +332,16 @@ export const CAR = {
 
 Mark tasks with ✅ as they are completed. Leave comments if blockers arise.
 
-**Overall Milestone Status:** Not Started
+**Overall Milestone Status:** ✅ COMPLETED
+
+**Implementation Notes:**
+- All tasks completed successfully
+- Track renders smoothly with oval shape
+- Car follows track path correctly with proper rotation
+- Constant speed movement working (will be replaced by physics in M2)
+- Dev server running with hot reload
+- Ready for Milestone 2
 
 **Next Steps After Completion:**
-1. Commit Milestone 1 work
+1. Commit Milestone 1 work ← READY
 2. Begin Milestone 2: Vehicle Physics & Input-Driven Movement

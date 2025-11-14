@@ -1,10 +1,11 @@
 // Game tuning constants - centralized for easy balance adjustments
 
 export const PHYSICS = {
-  MAX_SPEED: 0.2,                // Maximum velocity (progress per second, 0-1 scale)
-                                 // 0.2 = 20% of track per second = ~5 seconds per lap
-  FRICTION: 0.98,                // Applied every frame (0.98 = retains 98% velocity)
-  BASE_ACCELERATION: 0.01,       // Base acceleration amount (in progress per second²)
+  MAX_SPEED: 0.3,                // Maximum velocity (progress per second, 0-1 scale)
+                                 // 0.3 = 30% of track per second = ~3.3 seconds per lap
+  FRICTION: 0.985,               // Applied every frame (0.985 = retains 98.5% velocity)
+  BASE_ACCELERATION: 0.05,       // Base acceleration amount (in progress per second²)
+                                 // Increased for more responsive boosts
   MIN_VELOCITY: 0                // Car CAN stop completely (zero velocity)
 };
 

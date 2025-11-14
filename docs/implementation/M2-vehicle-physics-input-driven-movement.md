@@ -29,13 +29,13 @@ This milestone replaces the constant-speed movement from M1 with a realistic mom
 **Goal:** Implement track-independent physics simulation
 
 **Tasks:**
-- [ ] Create `src/systems/VehiclePhysics.js` class
-- [ ] Add properties: `position` (0-1 track progress), `velocity`, `acceleration`
-- [ ] Implement `update(delta)` method with physics calculations
-- [ ] Implement `applyBoost(multiplier)` method to add acceleration
-- [ ] Add friction that applies every frame
-- [ ] Ensure velocity can reach zero (car stops completely)
-- [ ] Implement max speed capping
+- [x] Create `src/systems/VehiclePhysics.js` class
+- [x] Add properties: `position` (0-1 track progress), `velocity`, `acceleration`
+- [x] Implement `update(delta)` method with physics calculations
+- [x] Implement `applyBoost(multiplier)` method to add acceleration
+- [x] Add friction that applies every frame
+- [x] Ensure velocity can reach zero (car stops completely)
+- [x] Implement max speed capping
 
 **Physics Calculations:**
 ```javascript
@@ -72,12 +72,12 @@ class VehiclePhysics {
 **Goal:** Replace constant-speed movement with physics-driven movement
 
 **Tasks:**
-- [ ] Import VehiclePhysics into GameScene
-- [ ] Create VehiclePhysics instance in `create()`
-- [ ] Remove old constant-speed logic from `update()`
-- [ ] Call `vehiclePhysics.update(delta)` in GameScene `update()`
-- [ ] Use `vehiclePhysics.position` to get car position from Track
-- [ ] Handle lap wrapping (when position >= 1, wrap to 0)
+- [x] Import VehiclePhysics into GameScene
+- [x] Create VehiclePhysics instance in `create()`
+- [x] Remove old constant-speed logic from `update()`
+- [x] Call `vehiclePhysics.update(delta)` in GameScene `update()`
+- [x] Use `vehiclePhysics.position` to get car position from Track
+- [x] Handle lap wrapping (when position >= 1, wrap to 0)
 
 **Integration Pattern:**
 ```javascript
@@ -105,11 +105,11 @@ this.car.setRotation(position.angle);
 **Goal:** Allow testing physics with spacebar input
 
 **Tasks:**
-- [ ] Add keyboard input listener in GameScene `create()`
-- [ ] Detect spacebar press events
-- [ ] Apply boost when spacebar is pressed
-- [ ] Use a fixed boost multiplier for testing (e.g., 1.0)
-- [ ] Add visual/audio feedback (optional for now)
+- [x] Add keyboard input listener in GameScene `create()`
+- [x] Detect spacebar press events
+- [x] Apply boost when spacebar is pressed
+- [x] Use a fixed boost multiplier for testing (e.g., 1.0)
+- [x] Add visual/audio feedback (optional for now)
 
 **Input Handling:**
 ```javascript
@@ -133,12 +133,12 @@ this.input.keyboard.on('keydown-SPACE', () => {
 **Goal:** Display current velocity for visual feedback
 
 **Tasks:**
-- [ ] Create speed text display in GameScene
-- [ ] Position indicator on screen (e.g., bottom-left corner)
-- [ ] Update text each frame with current velocity
-- [ ] Format: "Speed: X.XX"
-- [ ] Use retro font (Press Start 2P)
-- [ ] Make it clearly readable
+- [x] Create speed text display in GameScene
+- [x] Position indicator on screen (e.g., bottom-left corner)
+- [x] Update text each frame with current velocity
+- [x] Format: "Speed: X.XX"
+- [x] Use retro font (Press Start 2P)
+- [x] Make it clearly readable
 
 **UI Implementation:**
 ```javascript
@@ -168,13 +168,13 @@ this.speedText.setText(`Speed: ${this.vehiclePhysics.velocity.toFixed(2)}`);
 **Goal:** Adjust constants for satisfying gameplay feel
 
 **Tasks:**
-- [ ] Test various friction values (0.95 - 0.99)
-- [ ] Test max speed values (3 - 7 units)
-- [ ] Test boost acceleration amounts
-- [ ] Verify car can stop completely (reaches velocity = 0)
-- [ ] Ensure acceleration feels responsive (not too slow)
-- [ ] Ensure deceleration creates urgency (not too fast, not too slow)
-- [ ] Document final tuned values in constants.js
+- [x] Test various friction values (0.95 - 0.99)
+- [x] Test max speed values (3 - 7 units)
+- [x] Test boost acceleration amounts
+- [x] Verify car can stop completely (reaches velocity = 0)
+- [x] Ensure acceleration feels responsive (not too slow)
+- [x] Ensure deceleration creates urgency (not too fast, not too slow)
+- [x] Document final tuned values in constants.js
 
 **Tuning Goals:**
 - **Quick response:** Car should feel responsive to boost inputs
@@ -207,16 +207,16 @@ export const PHYSICS = {
 **Goal:** Test all physics edge cases and scenarios
 
 **Tasks:**
-- [ ] Test: Car starts stationary (velocity = 0)
-- [ ] Test: Car can accelerate from stop
-- [ ] Test: Car can reach max speed
-- [ ] Test: Car can decelerate to full stop
-- [ ] Test: Velocity never goes negative
-- [ ] Test: Velocity never exceeds max speed
-- [ ] Test: Position wraps correctly at lap boundaries (position = 1.0 → 0.0)
-- [ ] Test: Delta time independence (same behavior at different frame rates)
-- [ ] Test: Rapid boost spam doesn't break physics
-- [ ] Document any issues or quirks
+- [x] Test: Car starts stationary (velocity = 0)
+- [x] Test: Car can accelerate from stop
+- [x] Test: Car can reach max speed
+- [x] Test: Car can decelerate to full stop
+- [x] Test: Velocity never goes negative
+- [x] Test: Velocity never exceeds max speed
+- [x] Test: Position wraps correctly at lap boundaries (position = 1.0 → 0.0)
+- [x] Test: Delta time independence (same behavior at different frame rates)
+- [x] Test: Rapid boost spam doesn't break physics
+- [x] Document any issues or quirks
 
 **Edge Case Testing:**
 
@@ -254,13 +254,13 @@ export const PHYSICS = {
 **Goal:** Add visual debug overlay for physics tuning
 
 **Tasks:**
-- [ ] Add debug panel toggle (press D key)
-- [ ] Display current velocity
-- [ ] Display current acceleration
-- [ ] Display current position (0-1)
-- [ ] Display boost multiplier when applied
-- [ ] Color-code values (yellow = at limit, white = normal)
-- [ ] Make panel toggleable and non-intrusive
+- [x] Add debug panel toggle (press D key)
+- [x] Display current velocity
+- [x] Display current acceleration
+- [x] Display current position (0-1)
+- [x] Display boost multiplier when applied
+- [x] Color-code values (yellow = at limit, white = normal)
+- [x] Make panel toggleable and non-intrusive
 
 **Implementation:**
 ```javascript
@@ -542,10 +542,19 @@ If missing, add them. These are the starting values and will be tuned in milesto
 
 Mark tasks with ✅ as they are completed. Leave comments if blockers arise.
 
-**Overall Milestone Status:** Not Started
+**Overall Milestone Status:** ✅ COMPLETED
+
+**Implementation Notes:**
+- VehiclePhysics class implemented with progress-based velocity (0-1 scale)
+- Physics integration complete - car starts stationary, moves with physics
+- Manual boost input working (spacebar for testing)
+- Speed indicator showing real-time velocity
+- Debug mode implemented with full physics info panel (press D)
+- All systems working smoothly with proper delta time handling
+- Ready for M3: Math Problem System
 
 **Next Steps After Completion:**
-1. Commit Milestone 2 work
+1. Commit Milestone 2 work ← READY
 2. Begin Milestone 3: Math Problem System & Timing Mechanics
 
 ---
