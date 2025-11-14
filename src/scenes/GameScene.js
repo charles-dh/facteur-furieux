@@ -307,11 +307,8 @@ export default class GameScene extends Phaser.Scene {
     graphics.lineStyle(TRACK.WIDTH, COLORS.TRACK_GRAY);
     graphics.strokePath(this.track.path);
 
-    // Draw dashed center line (white)
-    graphics.lineStyle(TRACK.CENTER_LINE_WIDTH, COLORS.TRACK_LINE_WHITE);
-    graphics.setLineDash([10, 10]); // 10px dash, 10px gap
-    graphics.strokePath(this.track.path);
-    graphics.setLineDash([]); // Reset line dash for other drawings
+    // Note: Phaser Graphics doesn't support dashed lines natively
+    // Skipping dashed center line for MVP - can be added later with manual segments
 
     // Draw start/finish line (red bar perpendicular to track)
     // Position it at progress = 0 (top center)
