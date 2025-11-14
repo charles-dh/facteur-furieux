@@ -3,11 +3,12 @@ import { gameConfig } from './config/gameConfig.js';
 
 // Scenes will be imported here as we build them
 // import MenuScene from './scenes/MenuScene.js';
-// import GameScene from './scenes/GameScene.js';
+import GameScene from './scenes/GameScene.js';
 // import GameOverScene from './scenes/GameOverScene.js';
 
 // Add scenes to configuration
-// gameConfig.scene = [MenuScene, GameScene, GameOverScene];
+// For M1-M3, we only have GameScene
+gameConfig.scene = [GameScene];
 
 // Initialize Phaser game
 const game = new Phaser.Game(gameConfig);
