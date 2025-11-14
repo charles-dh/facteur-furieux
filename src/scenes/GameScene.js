@@ -5,6 +5,7 @@ import Track from '../systems/Track.js';
 import VehiclePhysics from '../systems/VehiclePhysics.js';
 import MathProblem from '../systems/MathProblem.js';
 import StatisticsTracker from '../systems/StatisticsTracker.js';
+import FrenchSpeechRecognition from '../systems/FrenchSpeechRecognition.js';
 
 /**
  * GameScene - Main gameplay scene
@@ -110,6 +111,65 @@ export default class GameScene extends Phaser.Scene {
     }).setDepth(1000); // Ensure it's on top of everything
     console.log('Debug panel created');
 
+    // M6: Setup speech recognition
+    this.speech = new FrenchSpeechRecognition();
+
+    if (this.speech.supported) {
+      // Setup callbacks
+      this.speech.onNumberRecognized = (number) => {
+        this.handleSpeechNumber(number);
+      };
+
+      this.speech.onInterimResult = (text) => {
+        // Show what's being heard (visual feedback)
+        if (this.speechFeedbackText) {
+          this.speechFeedbackText.setText(`Écoute: "${text}"`);
+        }
+      };
+
+      this.speech.onError = (error) => {
+        console.error('Speech error:', error);
+        if (this.micStatusText) {
+          this.micStatusText.setText('🎤 Erreur');
+          this.micStatusText.setColor('#ff0000');
+        }
+      };
+
+      // Start listening
+      this.speech.start();
+
+      // Add microphone status indicator
+      this.micStatusText = this.add.text(400, 450, '🎤 Écoute...', {
+        fontFamily: '"Press Start 2P"',
+        fontSize: '12px',
+        color: '#00ff00',
+        stroke: '#000000',
+        strokeThickness: 2
+      }).setOrigin(0.5);
+
+      // Add speech feedback text (shows what's being heard)
+      this.speechFeedbackText = this.add.text(400, 480, '', {
+        fontFamily: '"Press Start 2P"',
+        fontSize: '10px',
+        color: '#aaaaaa',
+        stroke: '#000000',
+        strokeThickness: 2
+      }).setOrigin(0.5);
+
+      console.log('Speech recognition started');
+    } else {
+      // Show keyboard-only indicator
+      this.add.text(400, 450, 'Clavier uniquement', {
+        fontFamily: '"Press Start 2P"',
+        fontSize: '12px',
+        color: '#888888',
+        stroke: '#000000',
+        strokeThickness: 2
+      }).setOrigin(0.5);
+
+      console.log('Speech recognition not supported - keyboard only');
+    }
+
     // M3: Start first problem
     this.startNewProblem();
     console.log('First problem started');
@@ -118,7 +178,27 @@ export default class GameScene extends Phaser.Scene {
     this.stats.startRace(this.time.now);
 
     console.log('=== GameScene.create() completed ===');
-    console.log('GameScene created! Answer problems to boost, D for debug');
+    console.log('GameScene created! Answer with voice or keyboard, D for debug');
+  }
+
+  /**
+   * Handle speech-recognized number
+   * M6: Automatically submit when number is spoken
+   */
+  handleSpeechNumber(number) {
+    console.log('Speech recognized number:', number);
+
+    // Clear speech feedback
+    if (this.speechFeedbackText) {
+      this.speechFeedbackText.setText('');
+    }
+
+    // Set as current answer and immediately submit
+    this.currentAnswer = String(number);
+    this.answerText.setText(this.currentAnswer);
+
+    // Auto-submit (no need to press Enter with voice)
+    this.submitAnswer();
   }
 
   /**
@@ -524,9 +604,15 @@ export default class GameScene extends Phaser.Scene {
   /**
    * End the race and transition to GameOver scene
    * M4: Pass statistics to results screen
+   * M6: Stop speech recognition
    */
   endRace() {
     console.log('Race complete! Transitioning to GameOver scene');
+
+    // M6: Stop speech recognition
+    if (this.speech && this.speech.supported) {
+      this.speech.stop();
+    }
 
     // Small delay before transition for dramatic effect
     this.time.delayedCall(500, () => {
