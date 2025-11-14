@@ -305,10 +305,20 @@ export default class GameScene extends Phaser.Scene {
 
     // Draw main track (thick gray stroke)
     graphics.lineStyle(TRACK.WIDTH, COLORS.TRACK_GRAY);
-    graphics.strokePath(this.track.path);
 
-    // Note: Phaser Graphics doesn't support dashed lines natively
-    // Skipping dashed center line for MVP - can be added later with manual segments
+    // Get points along the path to draw it
+    const points = this.track.path.getPoints(100); // Get 100 points along the path
+
+    // Draw the path using lines between points
+    graphics.beginPath();
+    graphics.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      graphics.lineTo(points[i].x, points[i].y);
+    }
+    graphics.closePath();
+    graphics.strokePath();
+
+    console.log('Track rendered with', points.length, 'points');
 
     // Draw start/finish line (red bar perpendicular to track)
     // Position it at progress = 0 (top center)
