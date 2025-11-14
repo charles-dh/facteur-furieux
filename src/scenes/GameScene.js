@@ -20,35 +20,45 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
+    console.log('=== GameScene.create() started ===');
+
     // Add grass green background
     // Note: Background color is also set in gameConfig, but we add this
     // as a rectangle to ensure it's visible if canvas is resized
     this.add.rectangle(400, 400, 800, 800, COLORS.GRASS_GREEN);
+    console.log('Background added');
 
     // Create track system
     this.track = new Track(this);
+    console.log('Track created');
 
     // Render track graphics
     this.renderTrack();
+    console.log('Track rendered');
 
     // Create and position car
     this.createCar();
+    console.log('Car created');
 
     // M2: Create physics system (replaces M1 constant-speed movement)
     this.vehiclePhysics = new VehiclePhysics();
+    console.log('Physics created');
 
     // M3: Create math problem system
     // For MVP, using tables 2-5 for testing (will be configurable in M5)
     this.mathProblem = new MathProblem([2, 3, 4, 5]);
+    console.log('Math problem system created');
 
     // M3: Create problem UI overlay
     this.createProblemUI();
+    console.log('Problem UI created');
 
     // M3: Initialize answer input
     this.currentAnswer = '';
 
     // M3: Setup keyboard input for answers
     this.setupAnswerInput();
+    console.log('Answer input setup');
 
     // M2.4: Add speed indicator UI
     this.speedText = this.add.text(20, 760, 'Speed: 0.00', {
@@ -58,6 +68,7 @@ export default class GameScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 3
     });
+    console.log('Speed indicator created');
 
     // M2.7: Debug mode (optional but recommended for physics tuning)
     this.debugMode = false;
@@ -76,10 +87,13 @@ export default class GameScene extends Phaser.Scene {
       backgroundColor: '#000000',
       padding: { x: 8, y: 8 }
     }).setDepth(1000); // Ensure it's on top of everything
+    console.log('Debug panel created');
 
     // M3: Start first problem
     this.startNewProblem();
+    console.log('First problem started');
 
+    console.log('=== GameScene.create() completed ===');
     console.log('GameScene created! Answer problems to boost, D for debug');
   }
 
