@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { COLORS } from '../config/colors.js';
-import { TRACK, CAR } from '../config/constants.js';
+import { TRACK, CAR, PHYSICS } from '../config/constants.js';
 import Track from '../systems/Track.js';
+import VehiclePhysics from '../systems/VehiclePhysics.js';
 
 /**
  * GameScene - Main gameplay scene
@@ -32,15 +33,44 @@ export default class GameScene extends Phaser.Scene {
     // Create and position car
     this.createCar();
 
-    // Initialize car movement (for M1 only - will be replaced by physics in M2)
-    // Progress represents position on track (0 = start, 1 = full lap)
-    this.progress = 0;
+    // M2: Create physics system (replaces M1 constant-speed movement)
+    this.vehiclePhysics = new VehiclePhysics();
 
-    // Constant speed for M1 testing (will be replaced by physics in M2)
-    // Speed of 0.05 means 5% of track per second (~20 seconds per lap)
-    this.constantSpeed = 0.05;
+    // M2.3: Add manual boost input for testing
+    // Spacebar applies a full boost (will be replaced by problem answers in M3)
+    this.input.keyboard.on('keydown-SPACE', () => {
+      this.vehiclePhysics.applyBoost(1.0); // Full boost for testing
+      console.log('Boost applied! Velocity:', this.vehiclePhysics.velocity.toFixed(4));
+    });
 
-    console.log('GameScene created!');
+    // M2.4: Add speed indicator UI
+    this.speedText = this.add.text(20, 760, 'Speed: 0.00', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '14px',
+      color: '#ffff00',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+
+    // M2.7: Debug mode (optional but recommended for physics tuning)
+    this.debugMode = false;
+
+    // Toggle debug mode with D key
+    this.input.keyboard.on('keydown-D', () => {
+      this.debugMode = !this.debugMode;
+      console.log('Debug mode:', this.debugMode ? 'ON' : 'OFF');
+    });
+
+    // Create debug text panel (bottom-left corner)
+    this.debugText = this.add.text(10, 650, '', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#00ff00',
+      backgroundColor: '#000000',
+      padding: { x: 8, y: 8 }
+    }).setDepth(1000); // Ensure it's on top of everything
+
+    console.log('GameScene created! Press SPACE to boost, D for debug');
   }
 
   /**
@@ -113,24 +143,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    // M1: Simple constant-speed movement to verify track following
-    // This will be replaced by physics-based movement in M2
+    // M2: Physics-based movement (replaces M1 constant-speed)
 
-    // Convert delta from milliseconds to seconds for frame-rate independence
-    const deltaSeconds = delta / 1000;
+    // Update physics simulation
+    // This handles velocity, friction, acceleration, and position updates
+    this.vehiclePhysics.update(delta);
 
-    // Increment progress based on constant speed
-    // Progress is 0-1 scale (0 = start, 1 = complete lap)
-    this.progress += this.constantSpeed * deltaSeconds;
-
-    // Handle lap wrapping - when we complete a lap, reset to start
-    if (this.progress >= 1.0) {
-      this.progress = this.progress % 1.0;
-      console.log('Lap completed!');
-    }
-
-    // Get world position and angle from track at current progress
-    const position = this.track.getPositionAt(this.progress);
+    // Get world position and angle from track using physics position
+    const position = this.track.getPositionAt(this.vehiclePhysics.position);
 
     // Update car position and rotation to follow the track
     this.car.setPosition(position.x, position.y);
@@ -138,5 +158,37 @@ export default class GameScene extends Phaser.Scene {
     // Add PI/2 to angle because car triangle points up in local coordinates
     // but the track tangent angle assumes pointing right
     this.car.setRotation(position.angle + Math.PI / 2);
+
+    // M2.4: Update speed indicator
+    this.speedText.setText(`Speed: ${this.vehiclePhysics.velocity.toFixed(2)}`);
+
+    // M2.7: Update debug panel
+    this.updateDebug();
+  }
+
+  /**
+   * Update debug overlay with physics information
+   * M2.7: Debug mode for physics tuning
+   */
+  updateDebug() {
+    if (!this.debugMode) {
+      this.debugText.setVisible(false);
+      return;
+    }
+
+    this.debugText.setVisible(true);
+    const p = this.vehiclePhysics;
+
+    const debugInfo = [
+      'DEBUG MODE (Press D to toggle)',
+      '─'.repeat(35),
+      `Velocity:     ${p.velocity.toFixed(4)} / ${p.maxSpeed}`,
+      `Acceleration: ${p.acceleration.toFixed(6)}`,
+      `Position:     ${p.position.toFixed(4)}`,
+      `Friction:     ${PHYSICS.FRICTION}`,
+      `Max Speed:    ${PHYSICS.MAX_SPEED} (${(1/PHYSICS.MAX_SPEED).toFixed(1)}s/lap)`
+    ].join('\n');
+
+    this.debugText.setText(debugInfo);
   }
 }
