@@ -3,8 +3,8 @@
 export const PHYSICS = {
   MAX_SPEED: 1.3, // Maximum velocity (progress per second, 0-1 scale)
   // 0.3 = 30% of track per second = ~3.3 seconds per lap
-  FRICTION: 0.989, // Applied every frame (0.985 = retains 98.5% velocity)
-  BASE_ACCELERATION: 0.4, // Base acceleration amount (in progress per second²)
+  FRICTION: 0.99, // Applied every frame (0.985 = retains 98.5% velocity)
+  BASE_ACCELERATION: 0.18, // Base acceleration amount (in progress per second²)
   // Increased for more responsive boosts
   MIN_VELOCITY: 0, // Car CAN stop completely (zero velocity)
 };
@@ -25,7 +25,7 @@ export const BOOST = {
 };
 
 export const GAME = {
-  LAPS_TO_COMPLETE: 3,
+  LAPS_TO_COMPLETE: 5,
   CANVAS_WIDTH: 800,
   CANVAS_HEIGHT: 800,
 };
@@ -38,6 +38,6 @@ export const TRACK = {
 };
 
 export const CAR = {
-  WIDTH: 40, // Car width (sprite display size)
-  HEIGHT: 60, // Car height (sprite display size)
+  WIDTH: 20, // Car width (sprite display size)
+  HEIGHT: 30, // Car height (sprite display size)
 };

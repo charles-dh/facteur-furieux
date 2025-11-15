@@ -345,6 +345,82 @@ export default class GameScene extends Phaser.Scene {
       strokeThickness: 2,
       align: 'right'
     }).setOrigin(1, 0);
+
+    // Top-right corner: Restart button
+    this.createRestartButton();
+  }
+
+  /**
+   * Create restart button in top-right corner
+   * Allows player to return to menu and start over
+   */
+  createRestartButton() {
+    const restartButton = this.add.text(760, 110, '[ ↻ ]', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '20px',
+      color: '#ff6666',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(1, 0);
+
+    restartButton.setInteractive({ useHandCursor: true });
+
+    // Hover effect
+    restartButton.on('pointerover', () => {
+      this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
+      restartButton.setColor('#ff0000');
+      restartButton.setScale(1.1);
+    });
+
+    restartButton.on('pointerout', () => {
+      restartButton.setColor('#ff6666');
+      restartButton.setScale(1.0);
+    });
+
+    // Click handler - confirm before restarting
+    restartButton.on('pointerdown', () => {
+      this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+
+      // Animate button press
+      this.tweens.add({
+        targets: restartButton,
+        scaleX: 0.9,
+        scaleY: 0.9,
+        duration: 100,
+        yoyo: true,
+        onComplete: () => {
+          // Confirm restart
+          const confirmed = confirm('Abandonner la course et retourner au menu?');
+          if (confirmed) {
+            this.restartGame();
+          }
+        }
+      });
+    });
+
+    // Also allow ESC key to restart
+    this.input.keyboard.on('keydown-ESC', () => {
+      const confirmed = confirm('Abandonner la course et retourner au menu?');
+      if (confirmed) {
+        this.restartGame();
+      }
+    });
+  }
+
+  /**
+   * Restart the game - return to menu
+   * Stops speech recognition and transitions to MenuScene
+   */
+  restartGame() {
+    console.log('Restarting game - returning to menu');
+
+    // Stop speech recognition if active
+    if (this.speech && this.speech.supported) {
+      this.speech.stop();
+    }
+
+    // Return to menu
+    this.scene.start('MenuScene');
   }
 
   /**

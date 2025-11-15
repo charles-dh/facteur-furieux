@@ -86,7 +86,8 @@ export default class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Name display (simulated input - Phaser doesn't have text input)
-    this.playerName = "Pilote"; // Default name
+    // Load player name from localStorage or use default
+    this.playerName = this.loadPlayerName();
     this.nameText = this.add
       .text(400, 240, this.playerName, {
         fontFamily: '"Press Start 2P"',
@@ -479,6 +480,33 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   /**
+   * Load player name from localStorage
+   * @returns {string} - Saved player name or default "Pilote"
+   */
+  loadPlayerName() {
+    try {
+      const savedName = localStorage.getItem('facteur_furieux_player_name');
+      return savedName && savedName.trim().length > 0 ? savedName : 'Pilote';
+    } catch (error) {
+      console.error('Error loading player name:', error);
+      return 'Pilote';
+    }
+  }
+
+  /**
+   * Save player name to localStorage
+   * @param {string} name - Player name to save
+   */
+  savePlayerName(name) {
+    try {
+      localStorage.setItem('facteur_furieux_player_name', name);
+      console.log('Player name saved:', name);
+    } catch (error) {
+      console.error('Error saving player name:', error);
+    }
+  }
+
+  /**
    * Edit player name (simple prompt for MVP)
    * M5: Using browser prompt for simplicity
    * Could be enhanced with custom input UI later
@@ -489,6 +517,8 @@ export default class MenuScene extends Phaser.Scene {
     if (newName && newName.trim().length > 0) {
       this.playerName = newName.trim();
       this.nameText.setText(this.playerName);
+      // Save to localStorage so it persists
+      this.savePlayerName(this.playerName);
     }
   }
 

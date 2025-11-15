@@ -63,8 +63,31 @@ export default class GameOverScene extends Phaser.Scene {
     // M7: Initialize audio manager
     this.audioManager = new AudioManager(this);
 
-    // Initialize leaderboard manager and save score
+    // Initialize leaderboard manager
     this.leaderboard = new LeaderboardManager();
+
+    // Check if score would make the leaderboard
+    const wouldMakeLeaderboard = this.leaderboard.wouldMakeLeaderboard(this.results.totalTime);
+
+    // If score would make leaderboard, give player chance to edit name
+    if (wouldMakeLeaderboard) {
+      const editName = confirm(
+        `Félicitations! Ton temps de ${this.leaderboard.formatTime(this.results.totalTime)} entre dans le classement!\n\n` +
+        `Nom actuel: ${this.playerName}\n\n` +
+        `Veux-tu changer ton nom avant de sauvegarder?`
+      );
+
+      if (editName) {
+        const newName = prompt("Entre ton nom:", this.playerName);
+        if (newName && newName.trim().length > 0) {
+          this.playerName = newName.trim();
+          // Save to localStorage so it persists for next game
+          this.savePlayerName(this.playerName);
+        }
+      }
+    }
+
+    // Save score to leaderboard
     this.savedRank = this.leaderboard.addScore({
       playerName: this.playerName,
       totalTime: this.results.totalTime,
@@ -270,6 +293,19 @@ export default class GameOverScene extends Phaser.Scene {
     });
 
     console.log('GameOverScene created');
+  }
+
+  /**
+   * Save player name to localStorage
+   * @param {string} name - Player name to save
+   */
+  savePlayerName(name) {
+    try {
+      localStorage.setItem('facteur_furieux_player_name', name);
+      console.log('Player name saved:', name);
+    } catch (error) {
+      console.error('Error saving player name:', error);
+    }
   }
 
   /**
