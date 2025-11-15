@@ -1,8 +1,8 @@
-import Phaser from 'phaser';
-import { COLORS } from '../config/colors.js';
-import { AUDIO, EFFECTS } from '../config/audioConfig.js';
-import AudioManager from '../systems/AudioManager.js';
-import SoundGenerator from '../systems/SoundGenerator.js';
+import Phaser from "phaser";
+import { COLORS } from "../config/colors.js";
+import { AUDIO, EFFECTS } from "../config/audioConfig.js";
+import AudioManager from "../systems/AudioManager.js";
+import SoundGenerator from "../systems/SoundGenerator.js";
 
 /**
  * MenuScene - Welcome screen with configuration
@@ -21,7 +21,7 @@ import SoundGenerator from '../systems/SoundGenerator.js';
  */
 export default class MenuScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'MenuScene' });
+    super({ key: "MenuScene" });
   }
 
   /**
@@ -29,7 +29,7 @@ export default class MenuScene extends Phaser.Scene {
    * M7: Generate sound effects for menu interactions
    */
   preload() {
-    console.log('MenuScene: Generating sound effects...');
+    console.log("MenuScene: Generating sound effects...");
 
     // Create sound generator
     const generator = new SoundGenerator();
@@ -37,7 +37,7 @@ export default class MenuScene extends Phaser.Scene {
     // Generate menu sounds
     const sounds = [
       { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
-      { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() }
+      { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() },
     ];
 
     // Convert buffers to base64 and load into Phaser
@@ -54,57 +54,69 @@ export default class MenuScene extends Phaser.Scene {
     this.add.rectangle(400, 400, 800, 800, 0x004400);
 
     // Game title
-    this.add.text(400, 80, 'MATH RACER', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '48px',
-      color: '#ffff00',
-      stroke: '#000000',
-      strokeThickness: 8
-    }).setOrigin(0.5);
+    this.add
+      .text(400, 80, "FACTOR FURIOUS", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "48px",
+        color: "#ffff00",
+        stroke: "#000000",
+        strokeThickness: 8,
+      })
+      .setOrigin(0.5);
 
-    this.add.text(400, 140, 'Course de Multiplications', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '16px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    this.add
+      .text(400, 140, "Course de Multiplications", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "16px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
 
     // Name input section
-    this.add.text(400, 200, 'Nom:', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '18px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    this.add
+      .text(400, 200, "Nom:", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "18px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
 
     // Name display (simulated input - Phaser doesn't have text input)
-    this.playerName = 'Pilote'; // Default name
-    this.nameText = this.add.text(400, 240, this.playerName, {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '20px',
-      color: '#ffff00',
-      stroke: '#000000',
-      strokeThickness: 4
-    }).setOrigin(0.5);
+    this.playerName = "Pilote"; // Default name
+    this.nameText = this.add
+      .text(400, 240, this.playerName, {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "20px",
+        color: "#ffff00",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
 
-    this.add.text(400, 270, '(appuyez sur N pour changer)', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '10px',
-      color: '#888888',
-      stroke: '#000000',
-      strokeThickness: 2
-    }).setOrigin(0.5);
+    this.add
+      .text(400, 270, "(appuyez sur N pour changer)", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "10px",
+        color: "#888888",
+        stroke: "#000000",
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5);
 
     // Table selection section
-    this.add.text(400, 330, 'Choisis tes tables:', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '18px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    this.add
+      .text(400, 330, "Choisis tes tables:", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "18px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
 
     // Create table selection buttons
     this.selectedTables = new Set([2, 3, 4, 5]); // Default selection
@@ -120,7 +132,7 @@ export default class MenuScene extends Phaser.Scene {
     // Setup keyboard input for name editing
     this.setupNameInput();
 
-    console.log('MenuScene created');
+    console.log("MenuScene created");
   }
 
   /**
@@ -140,13 +152,15 @@ export default class MenuScene extends Phaser.Scene {
       button.setInteractive({ useHandCursor: true });
 
       // Button text
-      const text = this.add.text(x, y, String(table), {
-        fontFamily: '"Press Start 2P"',
-        fontSize: '24px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 3
-      }).setOrigin(0.5);
+      const text = this.add
+        .text(x, y, String(table), {
+          fontFamily: '"Press Start 2P"',
+          fontSize: "24px",
+          color: "#ffffff",
+          stroke: "#000000",
+          strokeThickness: 3,
+        })
+        .setOrigin(0.5);
 
       // Store references
       this.tableButtons[table] = { button, text };
@@ -155,7 +169,7 @@ export default class MenuScene extends Phaser.Scene {
       this.updateTableButtonState(table);
 
       // Click handler with sound and animation
-      button.on('pointerdown', () => {
+      button.on("pointerdown", () => {
         // M7: Play click sound
         this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
 
@@ -166,14 +180,14 @@ export default class MenuScene extends Phaser.Scene {
           scaleY: 0.9,
           duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
           yoyo: true,
-          ease: 'Quad.easeInOut'
+          ease: "Quad.easeInOut",
         });
 
         this.toggleTable(table);
       });
 
       // Hover effects with sound
-      button.on('pointerover', () => {
+      button.on("pointerover", () => {
         // M7: Play hover sound
         this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
 
@@ -182,7 +196,7 @@ export default class MenuScene extends Phaser.Scene {
         }
       });
 
-      button.on('pointerout', () => {
+      button.on("pointerout", () => {
         this.updateTableButtonState(table);
       });
     }
@@ -211,10 +225,10 @@ export default class MenuScene extends Phaser.Scene {
 
     if (isSelected) {
       button.setFillStyle(0x00aa00); // Green when selected
-      text.setColor('#ffffff');
+      text.setColor("#ffffff");
     } else {
       button.setFillStyle(0x333333); // Gray when not selected
-      text.setColor('#888888');
+      text.setColor("#888888");
     }
   }
 
@@ -224,17 +238,19 @@ export default class MenuScene extends Phaser.Scene {
   createSelectAllButton() {
     const y = 490;
 
-    this.selectAllButton = this.add.text(400, y, '[ Tout sélectionner ]', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '14px',
-      color: '#ffff00',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    this.selectAllButton = this.add
+      .text(400, y, "[ Tout sélectionner ]", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "14px",
+        color: "#ffff00",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
 
     this.selectAllButton.setInteractive({ useHandCursor: true });
 
-    this.selectAllButton.on('pointerdown', () => {
+    this.selectAllButton.on("pointerdown", () => {
       // M7: Play click sound and animation
       this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
       this.tweens.add({
@@ -242,20 +258,20 @@ export default class MenuScene extends Phaser.Scene {
         scaleX: 0.95,
         scaleY: 0.95,
         duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
-        yoyo: true
+        yoyo: true,
       });
 
       this.toggleSelectAll();
     });
 
-    this.selectAllButton.on('pointerover', () => {
+    this.selectAllButton.on("pointerover", () => {
       // M7: Play hover sound
       this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
-      this.selectAllButton.setColor('#ffffff');
+      this.selectAllButton.setColor("#ffffff");
     });
 
-    this.selectAllButton.on('pointerout', () => {
-      this.selectAllButton.setColor('#ffff00');
+    this.selectAllButton.on("pointerout", () => {
+      this.selectAllButton.setColor("#ffff00");
     });
   }
 
@@ -289,17 +305,19 @@ export default class MenuScene extends Phaser.Scene {
   createStartButton() {
     const y = 580;
 
-    this.startButton = this.add.text(400, y, '[ COMMENCER ]', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '24px',
-      color: '#00ff00',
-      stroke: '#000000',
-      strokeThickness: 4
-    }).setOrigin(0.5);
+    this.startButton = this.add
+      .text(400, y, "[ COMMENCER ]", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "24px",
+        color: "#00ff00",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
 
     this.startButton.setInteractive({ useHandCursor: true });
 
-    this.startButton.on('pointerdown', () => {
+    this.startButton.on("pointerdown", () => {
       if (this.selectedTables.size > 0) {
         // M7: Play click sound and animation
         this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
@@ -308,22 +326,22 @@ export default class MenuScene extends Phaser.Scene {
           scaleX: 0.95,
           scaleY: 0.95,
           duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
-          yoyo: true
+          yoyo: true,
         });
       }
 
       this.startGame();
     });
 
-    this.startButton.on('pointerover', () => {
+    this.startButton.on("pointerover", () => {
       if (this.selectedTables.size > 0) {
         // M7: Play hover sound
         this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
-        this.startButton.setColor('#ffff00');
+        this.startButton.setColor("#ffff00");
       }
     });
 
-    this.startButton.on('pointerout', () => {
+    this.startButton.on("pointerout", () => {
       this.updateStartButton();
     });
 
@@ -336,10 +354,10 @@ export default class MenuScene extends Phaser.Scene {
    */
   updateStartButton() {
     if (this.selectedTables.size > 0) {
-      this.startButton.setColor('#00ff00');
+      this.startButton.setColor("#00ff00");
       this.startButton.setAlpha(1);
     } else {
-      this.startButton.setColor('#666666');
+      this.startButton.setColor("#666666");
       this.startButton.setAlpha(0.5);
     }
   }
@@ -349,12 +367,12 @@ export default class MenuScene extends Phaser.Scene {
    */
   setupNameInput() {
     // Press N to edit name
-    this.input.keyboard.on('keydown-N', () => {
+    this.input.keyboard.on("keydown-N", () => {
       this.editName();
     });
 
     // Press Enter to start game
-    this.input.keyboard.on('keydown-ENTER', () => {
+    this.input.keyboard.on("keydown-ENTER", () => {
       if (this.selectedTables.size > 0) {
         this.startGame();
       }
@@ -367,7 +385,7 @@ export default class MenuScene extends Phaser.Scene {
    * Could be enhanced with custom input UI later
    */
   editName() {
-    const newName = prompt('Entre ton nom:', this.playerName);
+    const newName = prompt("Entre ton nom:", this.playerName);
 
     if (newName && newName.trim().length > 0) {
       this.playerName = newName.trim();
@@ -381,19 +399,19 @@ export default class MenuScene extends Phaser.Scene {
   startGame() {
     // Validation: at least one table selected
     if (this.selectedTables.size === 0) {
-      console.log('Cannot start: no tables selected');
+      console.log("Cannot start: no tables selected");
       return;
     }
 
-    console.log('Starting game with:', {
+    console.log("Starting game with:", {
       playerName: this.playerName,
-      selectedTables: Array.from(this.selectedTables).sort((a, b) => a - b)
+      selectedTables: Array.from(this.selectedTables).sort((a, b) => a - b),
     });
 
     // Transition to GameScene with configuration
-    this.scene.start('GameScene', {
+    this.scene.start("GameScene", {
       playerName: this.playerName,
-      selectedTables: Array.from(this.selectedTables).sort((a, b) => a - b)
+      selectedTables: Array.from(this.selectedTables).sort((a, b) => a - b),
     });
   }
 }
