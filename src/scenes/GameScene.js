@@ -186,7 +186,10 @@ export default class GameScene extends Phaser.Scene {
    * M6: Automatically submit when number is spoken
    */
   handleSpeechNumber(number) {
-    console.log('Speech recognized number:', number);
+    console.log('=== Speech Input ===');
+    console.log('Recognized number:', number);
+    console.log('Current problem:', this.mathProblem.currentProblem);
+    console.log('Expected answer:', this.mathProblem.currentProblem?.answer);
 
     // Clear speech feedback
     if (this.speechFeedbackText) {
@@ -196,6 +199,8 @@ export default class GameScene extends Phaser.Scene {
     // Set as current answer and immediately submit
     this.currentAnswer = String(number);
     this.answerText.setText(this.currentAnswer);
+
+    console.log('Submitting answer:', this.currentAnswer);
 
     // Auto-submit (no need to press Enter with voice)
     this.submitAnswer();
@@ -342,9 +347,14 @@ export default class GameScene extends Phaser.Scene {
    * M3.6: Check answer, apply boost or show error
    */
   submitAnswer() {
-    if (!this.currentAnswer) return;
+    if (!this.currentAnswer) {
+      console.log('No answer to submit');
+      return;
+    }
 
+    console.log('Checking answer:', this.currentAnswer, 'against expected:', this.mathProblem.currentProblem?.answer);
     const isCorrect = this.mathProblem.checkAnswer(this.currentAnswer);
+    console.log('Answer is correct:', isCorrect);
 
     if (isCorrect) {
       this.handleCorrectAnswer();

@@ -149,6 +149,8 @@ export default class FrenchSpeechRecognition {
    * @returns {number|null} Numeric value or null if not a valid number
    */
   parseNumber(text) {
+    console.log('Parsing French text:', text);
+
     // Remove common noise words
     text = text.replace(/^(euh|heu|alors|donc)\s+/gi, '').trim();
 
@@ -171,23 +173,32 @@ export default class FrenchSpeechRecognition {
       'quatorze': 14,
       'quinze': 15,
       'seize': 16,
+      'dix-sept': 17,
+      'dix-huit': 18,
+      'dix-neuf': 19,
       'vingt': 20,
       'trente': 30,
       'quarante': 40,
       'cinquante': 50,
       'soixante': 60,
+      'soixante-dix': 70,
+      'quatre-vingt': 80, 'quatre-vingts': 80,
+      'quatre-vingt-dix': 90,
       'cent': 100, 'sang': 100 // Homophone
     };
 
     // Try exact match first
     if (numbers.hasOwnProperty(text)) {
-      return numbers[text];
+      const result = numbers[text];
+      console.log('Exact match found:', text, '→', result);
+      return result;
     }
 
-    // Handle compound numbers
-    // Examples: vingt-trois, soixante-dix, quatre-vingt-dix
+    // Handle compound numbers by splitting and adding
     let result = 0;
     const parts = text.split(/[\s\-]+/);
+
+    console.log('Split into parts:', parts);
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
@@ -196,26 +207,21 @@ export default class FrenchSpeechRecognition {
 
       if (numbers.hasOwnProperty(part)) {
         const value = numbers[part];
-
-        // Handle special cases
-        if (value === 20 || value === 60 || value === 100) {
-          // Multipliers
-          if (i + 1 < parts.length && (parts[i + 1] === 'et' || numbers[parts[i + 1]] < 10)) {
-            result += value;
-          } else {
-            result += value;
-          }
-        } else {
-          result += value;
-        }
+        result += value;
+      } else {
+        console.log('Unknown part:', part);
       }
     }
 
-    // Validate result is in expected range (2-100 for multiplication results)
-    if (result >= 0 && result <= 150) {
+    console.log('Compound number result:', result);
+
+    // Validate result is in expected range (2-150 for multiplication results)
+    if (result >= 2 && result <= 150) {
+      console.log('Valid number parsed:', result);
       return result;
     }
 
+    console.log('Invalid result or out of range:', result);
     return null;
   }
 }
