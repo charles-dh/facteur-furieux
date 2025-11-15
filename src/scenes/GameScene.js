@@ -478,34 +478,34 @@ export default class GameScene extends Phaser.Scene {
     // Draw main track (thick gray stroke)
     graphics.lineStyle(TRACK.WIDTH, COLORS.TRACK_GRAY);
 
-    // Get points along the path to draw it
-    const points = this.track.path.getPoints(100); // Get 100 points along the path
+    // Draw the circle manually to ensure it closes perfectly
+    // Center at (400, 400), radius 320
+    graphics.strokeCircle(400, 400, 320);
 
-    // Draw the path using lines between points
-    graphics.beginPath();
-    graphics.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      graphics.lineTo(points[i].x, points[i].y);
-    }
-    graphics.closePath();
-    graphics.strokePath();
+    console.log('Track rendered as circle');
 
-    console.log('Track rendered with', points.length, 'points');
-
-    // Draw start/finish line (red bar perpendicular to track)
+    // Draw start/finish line (white bar perpendicular to track)
     // Position it at progress = 0 (top center)
     const startPos = this.track.getPositionAt(0);
 
-    // Calculate perpendicular angle (90 degrees to track direction)
-    const perpAngle = startPos.angle + Math.PI / 2;
+    // The finish line rectangle dimensions: thinner width for a cleaner look
+    // By default, Phaser rectangles have width on X-axis, height on Y-axis
+    // So unrotated: narrow width (horizontal), height (vertical) = vertical bar
+    //
+    // At the top of track: tangent ≈ 0° (pointing right, horizontal)
+    // We want the finish line perpendicular to this = vertical
+    // A vertical bar (height > width) with 0° rotation is already vertical
+    // So we just need the tangent angle directly to keep it perpendicular as we go around
+    const perpAngle = startPos.angle;
 
-    // Draw the start/finish line as a rectangle rotated to be perpendicular
+    // Draw the start/finish line as a white rectangle rotated to be perpendicular
+    // Using thinner width (5px instead of 10px) for cleaner appearance
     const startFinishRect = this.add.rectangle(
       startPos.x,
       startPos.y,
-      TRACK.START_FINISH_WIDTH,
+      5,  // Thinner width
       TRACK.START_FINISH_HEIGHT,
-      COLORS.START_FINISH_RED
+      COLORS.TRACK_LINE_WHITE
     );
     startFinishRect.setRotation(perpAngle);
 
@@ -533,8 +533,9 @@ export default class GameScene extends Phaser.Scene {
     // Store reference to car graphics
     this.car = carGraphics;
 
-    // Position car at track start (progress = 0)
-    const startPos = this.track.getPositionAt(0);
+    // Position car slightly behind the start/finish line
+    // Use -0.005 progress (slightly before the line at 0.0)
+    const startPos = this.track.getPositionAt(-0.005);
     this.car.setPosition(startPos.x, startPos.y);
 
     // Rotate car to match track direction

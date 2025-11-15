@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import Phaser from "phaser";
 
 /**
  * Track System
@@ -19,30 +19,32 @@ export default class Track {
   constructor(scene) {
     this.scene = scene;
 
-    // Fixed oval track - same every time (not randomly generated)
-    // These points create a smooth, roughly oval racing path
-    const points = [
-      new Phaser.Math.Vector2(400, 100),   // Top center (start/finish)
-      new Phaser.Math.Vector2(600, 150),   // Top-right curve entry
-      new Phaser.Math.Vector2(700, 400),   // Right side
-      new Phaser.Math.Vector2(600, 650),   // Bottom-right curve
-      new Phaser.Math.Vector2(400, 700),   // Bottom center
-      new Phaser.Math.Vector2(200, 650),   // Bottom-left curve
-      new Phaser.Math.Vector2(100, 400),   // Left side
-      new Phaser.Math.Vector2(200, 150)    // Top-left curve
-    ];
+    // Simple circular track - clean and predictable
+    // Center: (400, 400), Radius: 320 pixels (larger track)
+    const centerX = 400;
+    const centerY = 400;
+    const radius = 320;
 
-    // Create closed spline path using Phaser's curve system
-    // Spline curves provide smooth interpolation between control points
-    this.path = new Phaser.Curves.Path();
-    this.path.add(new Phaser.Curves.Spline(points));
-    this.path.closePath(); // Ensure the path forms a closed loop
+    // Create a circle path using Phaser's Ellipse curve (with equal radii it's a circle)
+    // Start at 270 degrees (top of circle) so progress 0 is at the top
+    this.path = new Phaser.Curves.Ellipse(
+      centerX,
+      centerY,
+      radius,
+      radius,
+      270,
+      630,
+      false,
+      0
+    );
 
     // Calculate total track length in pixels using Phaser's built-in method
-    // This is used for rendering and will be referenced by the physics system
+    // For a circle: circumference = 2 * PI * radius
     this.length = this.path.getLength();
 
-    console.log(`Track created: ${this.length.toFixed(0)} pixels long`);
+    console.log(
+      `Track created: ${this.length.toFixed(0)} pixels long (circular)`
+    );
   }
 
   /**
@@ -67,7 +69,7 @@ export default class Track {
     return {
       x: point.x,
       y: point.y,
-      angle: angle
+      angle: angle,
     };
   }
 }
