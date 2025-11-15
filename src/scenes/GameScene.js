@@ -452,6 +452,21 @@ export default class GameScene extends Phaser.Scene {
     // Clear feedback and answer
     this.feedbackText.setText('');
     this.feedbackText.setScale(1); // Reset scale
+    this.feedbackText.setAlpha(1); // Reset alpha
+
+    // Kill any running animations on feedback text
+    this.tweens.killTweensOf(this.feedbackText);
+
+    // Kill any running timer bar animations and reset state
+    if (this.timerBarGlow) {
+      this.tweens.killTweensOf([this.timerBarGlow, this.timerBarFill]);
+      this.timerBarGlow.setData('pulsing', false);
+      this.timerBarGlow.setScale(1);
+      this.timerBarFill.setScale(1);
+      this.timerBarGlow.setAlpha(1);
+      this.timerBarFill.setAlpha(1);
+    }
+
     this.currentAnswer = '';
     this.answerText.setText('_');
     this.answerSubmitted = false; // Reset flag for new problem
@@ -717,45 +732,6 @@ export default class GameScene extends Phaser.Scene {
       graphics.moveTo(startX, startY);
       graphics.lineTo(endX, endY);
       graphics.strokePath();
-    }
-
-    // Draw track edge markers (cones/barriers) at regular intervals
-    const numMarkers = 24; // Place markers around the track
-    for (let i = 0; i < numMarkers; i++) {
-      const progress = i / numMarkers;
-      const pos = this.track.getPositionAt(progress);
-
-      // Calculate inner and outer edge positions
-      const perpAngle = pos.angle + Math.PI / 2; // Perpendicular to track direction
-      const markerOffset = TRACK.WIDTH / 2 + 8; // Just outside track edge
-
-      // Outer markers (orange cones)
-      const outerX = pos.x + Math.cos(perpAngle) * markerOffset;
-      const outerY = pos.y + Math.sin(perpAngle) * markerOffset;
-
-      const cone = this.add.triangle(
-        outerX,
-        outerY,
-        0, -6,  // Top point
-        -4, 6,  // Bottom left
-        4, 6,   // Bottom right
-        0xff6600 // Orange
-      );
-      cone.setRotation(pos.angle);
-
-      // Inner markers (orange cones)
-      const innerX = pos.x - Math.cos(perpAngle) * markerOffset;
-      const innerY = pos.y - Math.sin(perpAngle) * markerOffset;
-
-      const innerCone = this.add.triangle(
-        innerX,
-        innerY,
-        0, -6,
-        -4, 6,
-        4, 6,
-        0xff6600
-      );
-      innerCone.setRotation(pos.angle);
     }
 
     // Draw start/finish line with checkered pattern
