@@ -361,11 +361,15 @@ export default class GameScene extends Phaser.Scene {
       strokeThickness: 6
     }).setOrigin(0.5);
 
-    // Timer bar background (gray rectangle)
-    this.timerBarBg = this.add.rectangle(400, 320, 400, 20, 0x333333);
+    // Timer bar glow effect (behind background, creates glowing outline)
+    this.timerBarGlow = this.add.rectangle(400, 320, 410, 40, 0xffffff, 0.3)
+      .setOrigin(0.5);
 
-    // Timer bar fill (starts green, changes to yellow/red)
-    this.timerBarFill = this.add.rectangle(400, 320, 400, 20, COLORS.TIMER_GREEN)
+    // Timer bar background (gray rectangle, now thicker)
+    this.timerBarBg = this.add.rectangle(400, 320, 400, 30, 0x333333);
+
+    // Timer bar fill (starts green, changes to yellow/red, now thicker)
+    this.timerBarFill = this.add.rectangle(400, 320, 400, 30, COLORS.TIMER_GREEN)
       .setOrigin(0.5);
 
     // Answer display (shows what user is typing)
@@ -510,21 +514,40 @@ export default class GameScene extends Phaser.Scene {
     // DISABLED FOR TESTING
     // this.audioManager.playSFX(AUDIO.SFX.CORRECT);
 
-    // 6. M7: Show visual effect (green flash and particles)
-    // DISABLED FOR TESTING
-    // this.particleEffects.createCorrectFlash(400, 300);
+    // 6. M7: Show visual effect (green flash, particles, and starburst)
+    this.particleEffects.createCorrectFlash(400, 300);
 
-    // 7. Show feedback with animation
-    // DISABLED FOR TESTING
+    // 7. Show feedback with enhanced bounce and scale animation
     this.feedbackText.setText(`Correct! +${boostStrength.toFixed(2)} boost`);
     this.feedbackText.setColor('#00ff00');
-    // this.feedbackText.setScale(0.8);
-    // this.tweens.add({
-    //   targets: this.feedbackText,
-    //   scale: 1,
-    //   duration: 200,
-    //   ease: 'Back.easeOut'
-    // });
+    this.feedbackText.setScale(0.5);
+
+    // Multi-stage animation: bounce in with overshoot, then settle
+    this.tweens.add({
+      targets: this.feedbackText,
+      scale: 1.3, // Overshoot
+      duration: 200,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        // Bounce back to normal size
+        this.tweens.add({
+          targets: this.feedbackText,
+          scale: 1,
+          duration: 150,
+          ease: 'Bounce.easeOut'
+        });
+      }
+    });
+
+    // Add a gentle vertical bounce
+    const originalY = this.feedbackText.y;
+    this.tweens.add({
+      targets: this.feedbackText,
+      y: originalY - 10,
+      duration: 200,
+      ease: 'Quad.easeOut',
+      yoyo: true
+    });
 
     // 8. Clear answer
     this.currentAnswer = '';
@@ -598,6 +621,7 @@ export default class GameScene extends Phaser.Scene {
    */
   updateTimerBar() {
     const percent = this.mathProblem.getRemainingPercent();
+    const remainingTime = this.mathProblem.timer;
 
     // Update width
     this.timerBarFill.width = 400 * percent;
@@ -605,10 +629,40 @@ export default class GameScene extends Phaser.Scene {
     // Update color based on remaining time
     if (percent > 0.5) {
       this.timerBarFill.setFillStyle(COLORS.TIMER_GREEN);
+      this.timerBarGlow.setFillStyle(0x00ff00, 0.3);
     } else if (percent > 0.25) {
       this.timerBarFill.setFillStyle(COLORS.TIMER_YELLOW);
+      this.timerBarGlow.setFillStyle(0xffff00, 0.4);
     } else {
       this.timerBarFill.setFillStyle(COLORS.TIMER_RED);
+      this.timerBarGlow.setFillStyle(0xff0000, 0.5);
+    }
+
+    // Add pulsing animation when < 2 seconds remaining
+    if (remainingTime < 2000 && remainingTime > 0) {
+      // Create pulsing effect if not already animating
+      if (!this.timerBarGlow.getData('pulsing')) {
+        this.timerBarGlow.setData('pulsing', true);
+        this.tweens.add({
+          targets: [this.timerBarGlow, this.timerBarFill],
+          scaleY: 1.15,
+          alpha: { from: 1, to: 0.7 },
+          duration: 300,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      }
+    } else {
+      // Stop pulsing animation when time > 2s
+      if (this.timerBarGlow.getData('pulsing')) {
+        this.timerBarGlow.setData('pulsing', false);
+        this.tweens.killTweensOf([this.timerBarGlow, this.timerBarFill]);
+        this.timerBarGlow.setScale(1);
+        this.timerBarFill.setScale(1);
+        this.timerBarGlow.setAlpha(1);
+        this.timerBarFill.setAlpha(1);
+      }
     }
 
     // Check for timeout
@@ -627,6 +681,7 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Render the racing track using code-generated graphics
    * Uses Phaser Graphics API to draw the track path
+   * Enhanced with dashed center line, checkered finish, and edge markers
    */
   renderTrack() {
     const graphics = this.add.graphics();
@@ -640,32 +695,93 @@ export default class GameScene extends Phaser.Scene {
 
     console.log('Track rendered as circle');
 
-    // Draw start/finish line (white bar perpendicular to track)
+    // Draw dashed center line around the track
+    graphics.lineStyle(TRACK.CENTER_LINE_WIDTH, COLORS.TRACK_LINE_WHITE);
+    const dashLength = 15;
+    const gapLength = 10;
+    const radius = 320;
+    const circumference = 2 * Math.PI * radius;
+    const totalDashLength = dashLength + gapLength;
+    const numDashes = Math.floor(circumference / totalDashLength);
+
+    for (let i = 0; i < numDashes; i++) {
+      const startAngle = (i * totalDashLength / circumference) * 2 * Math.PI - Math.PI / 2;
+      const endAngle = ((i * totalDashLength + dashLength) / circumference) * 2 * Math.PI - Math.PI / 2;
+
+      const startX = 400 + radius * Math.cos(startAngle);
+      const startY = 400 + radius * Math.sin(startAngle);
+      const endX = 400 + radius * Math.cos(endAngle);
+      const endY = 400 + radius * Math.sin(endAngle);
+
+      graphics.beginPath();
+      graphics.moveTo(startX, startY);
+      graphics.lineTo(endX, endY);
+      graphics.strokePath();
+    }
+
+    // Draw track edge markers (cones/barriers) at regular intervals
+    const numMarkers = 24; // Place markers around the track
+    for (let i = 0; i < numMarkers; i++) {
+      const progress = i / numMarkers;
+      const pos = this.track.getPositionAt(progress);
+
+      // Calculate inner and outer edge positions
+      const perpAngle = pos.angle + Math.PI / 2; // Perpendicular to track direction
+      const markerOffset = TRACK.WIDTH / 2 + 8; // Just outside track edge
+
+      // Outer markers (orange cones)
+      const outerX = pos.x + Math.cos(perpAngle) * markerOffset;
+      const outerY = pos.y + Math.sin(perpAngle) * markerOffset;
+
+      const cone = this.add.triangle(
+        outerX,
+        outerY,
+        0, -6,  // Top point
+        -4, 6,  // Bottom left
+        4, 6,   // Bottom right
+        0xff6600 // Orange
+      );
+      cone.setRotation(pos.angle);
+
+      // Inner markers (orange cones)
+      const innerX = pos.x - Math.cos(perpAngle) * markerOffset;
+      const innerY = pos.y - Math.sin(perpAngle) * markerOffset;
+
+      const innerCone = this.add.triangle(
+        innerX,
+        innerY,
+        0, -6,
+        -4, 6,
+        4, 6,
+        0xff6600
+      );
+      innerCone.setRotation(pos.angle);
+    }
+
+    // Draw start/finish line with checkered pattern
     // Position it at progress = 0 (top center)
     const startPos = this.track.getPositionAt(0);
-
-    // The finish line rectangle dimensions: thinner width for a cleaner look
-    // By default, Phaser rectangles have width on X-axis, height on Y-axis
-    // So unrotated: narrow width (horizontal), height (vertical) = vertical bar
-    //
-    // At the top of track: tangent ≈ 0° (pointing right, horizontal)
-    // We want the finish line perpendicular to this = vertical
-    // A vertical bar (height > width) with 0° rotation is already vertical
-    // So we just need the tangent angle directly to keep it perpendicular as we go around
     const perpAngle = startPos.angle;
 
-    // Draw the start/finish line as a white rectangle rotated to be perpendicular
-    // Using thinner width (5px instead of 10px) for cleaner appearance
-    const startFinishRect = this.add.rectangle(
-      startPos.x,
-      startPos.y,
-      5,  // Thinner width
-      TRACK.START_FINISH_HEIGHT,
-      COLORS.TRACK_LINE_WHITE
-    );
-    startFinishRect.setRotation(perpAngle);
+    // Create checkered pattern for finish line
+    const squareSize = 8;
+    const numSquares = Math.ceil(TRACK.START_FINISH_HEIGHT / squareSize);
 
-    console.log('Track rendered');
+    for (let i = 0; i < numSquares; i++) {
+      const color = i % 2 === 0 ? 0xffffff : 0x000000; // Alternate black and white
+      const yOffset = (i - numSquares / 2) * squareSize;
+
+      const square = this.add.rectangle(
+        startPos.x,
+        startPos.y + yOffset,
+        5,
+        squareSize,
+        color
+      );
+      square.setRotation(perpAngle);
+    }
+
+    console.log('Track rendered with enhancements');
   }
 
   /**

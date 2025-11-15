@@ -27,18 +27,46 @@ export default class ParticleEffects {
    *
    * @param {number} x - X position
    * @param {number} y - Y position
+   * @param {number} speedPercent - Speed as percentage (0-1), affects color gradient and quantity
    * @returns {Phaser.GameObjects.Particles.ParticleEmitter} The emitter
    */
-  createSpeedBoost(x, y) {
-    // Create a simple circular particle texture
-    const graphics = this.scene.add.graphics();
-    graphics.fillStyle(EFFECTS.PARTICLES.SPEED_BOOST.TINT, 1);
-    graphics.fillCircle(4, 4, 4);
-    graphics.generateTexture('particle_boost', 8, 8);
-    graphics.destroy();
+  createSpeedBoost(x, y, speedPercent = 0.5) {
+    // Create gradient colored particle textures (yellow → orange → red based on speed)
+    // Low speed (0-0.33): Yellow
+    // Medium speed (0.33-0.66): Orange
+    // High speed (0.66-1.0): Red
+    const colors = [
+      { threshold: 0, color: 0xffff00, name: 'yellow' },   // Yellow
+      { threshold: 0.33, color: 0xffaa00, name: 'orange' }, // Orange
+      { threshold: 0.66, color: 0xff6600, name: 'red_orange' }, // Red-orange
+      { threshold: 0.85, color: 0xff0000, name: 'red' }     // Red
+    ];
 
-    // Create particle emitter
-    const emitter = this.scene.add.particles(x, y, 'particle_boost', {
+    // Determine color based on speed
+    let selectedColor = colors[0];
+    for (let i = colors.length - 1; i >= 0; i--) {
+      if (speedPercent >= colors[i].threshold) {
+        selectedColor = colors[i];
+        break;
+      }
+    }
+
+    // Create particle texture with selected color
+    const textureName = `particle_boost_${selectedColor.name}`;
+    if (!this.scene.textures.exists(textureName)) {
+      const graphics = this.scene.add.graphics();
+      graphics.fillStyle(selectedColor.color, 1);
+      graphics.fillCircle(4, 4, 4);
+      graphics.generateTexture(textureName, 8, 8);
+      graphics.destroy();
+    }
+
+    // Increase particle quantity at high speeds (2x to 5x base quantity)
+    const baseQuantity = EFFECTS.PARTICLES.SPEED_BOOST.QUANTITY;
+    const quantity = Math.floor(baseQuantity * (1 + speedPercent * 4));
+
+    // Create particle emitter with turbulence/swirl effect
+    const emitter = this.scene.add.particles(x, y, textureName, {
       speed: EFFECTS.PARTICLES.SPEED_BOOST.SPEED,
       lifespan: EFFECTS.PARTICLES.SPEED_BOOST.LIFESPAN,
       scale: {
@@ -51,7 +79,13 @@ export default class ParticleEffects {
       },
       blendMode: 'ADD',
       frequency: 50,
-      quantity: EFFECTS.PARTICLES.SPEED_BOOST.QUANTITY
+      quantity: quantity,
+      // Add turbulence/swirl effect by varying angle and speed
+      angle: { min: -20, max: 20 }, // Particles spread in a cone
+      speedX: { min: -30, max: 30 }, // Horizontal turbulence
+      speedY: { min: -30, max: 30 }, // Vertical turbulence
+      rotate: { min: -180, max: 180 }, // Random rotation
+      gravityY: 20 // Slight downward drift
     });
 
     this.activeEffects.push(emitter);
@@ -59,21 +93,32 @@ export default class ParticleEffects {
   }
 
   /**
-   * Create correct answer flash effect
-   * Brief green particles/flash
+   * Create correct answer flash effect with starburst
+   * Brief green particles/flash with enhanced starburst rays
    *
    * @param {number} x - Center X position
    * @param {number} y - Center Y position
    */
   createCorrectFlash(x = 400, y = 300) {
-    // Create green particle texture
-    const graphics = this.scene.add.graphics();
-    graphics.fillStyle(EFFECTS.PARTICLES.CORRECT_FLASH.TINT, 1);
-    graphics.fillCircle(3, 3, 3);
-    graphics.generateTexture('particle_correct', 6, 6);
-    graphics.destroy();
+    // Create green particle texture (circles)
+    if (!this.scene.textures.exists('particle_correct')) {
+      const graphics = this.scene.add.graphics();
+      graphics.fillStyle(EFFECTS.PARTICLES.CORRECT_FLASH.TINT, 1);
+      graphics.fillCircle(3, 3, 3);
+      graphics.generateTexture('particle_correct', 6, 6);
+      graphics.destroy();
+    }
 
-    // One-shot particle burst
+    // Create star particle texture (for starburst rays)
+    if (!this.scene.textures.exists('particle_star')) {
+      const graphics = this.scene.add.graphics();
+      graphics.fillStyle(0xffff00, 1); // Yellow stars
+      graphics.fillStar(4, 4, 5, 2, 4);
+      graphics.generateTexture('particle_star', 8, 8);
+      graphics.destroy();
+    }
+
+    // One-shot particle burst (circles)
     const emitter = this.scene.add.particles(x, y, 'particle_correct', {
       speed: EFFECTS.PARTICLES.CORRECT_FLASH.SPEED,
       lifespan: EFFECTS.PARTICLES.CORRECT_FLASH.LIFESPAN,
@@ -88,8 +133,34 @@ export default class ParticleEffects {
     // Explode once then destroy
     emitter.explode();
 
+    // Create starburst effect (radiating star rays)
+    const starEmitter = this.scene.add.particles(x, y, 'particle_star', {
+      speed: { min: 150, max: 300 },
+      lifespan: 800,
+      scale: {
+        start: 1.5,
+        end: 0
+      },
+      alpha: {
+        start: 1,
+        end: 0
+      },
+      blendMode: 'ADD',
+      quantity: 16, // 16 rays radiating outward
+      angle: { min: 0, max: 360 }, // Full circle
+      rotate: { min: 0, max: 360 } // Random rotation
+    });
+
+    // Explode starburst
+    starEmitter.explode();
+
+    // Cleanup
     this.scene.time.delayedCall(EFFECTS.PARTICLES.CORRECT_FLASH.LIFESPAN, () => {
       emitter.destroy();
+    });
+
+    this.scene.time.delayedCall(800, () => {
+      starEmitter.destroy();
     });
 
     // Also add a full-screen green flash overlay
