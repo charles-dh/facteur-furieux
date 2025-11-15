@@ -121,6 +121,7 @@ export default class GameScene extends Phaser.Scene {
     this.currentAnswer = '';
     this.answerSubmitted = false; // Flag to prevent timeout race condition
     this.processingAnswer = false; // Flag to prevent multiple simultaneous submissions
+    this.answerBuffer = []; // Buffer to store sequence of recognized answers
 
     // M3: Setup keyboard input for answers
     this.setupAnswerInput();
@@ -226,13 +227,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Handle speech-recognized number
+   * Handle speech-recognized number(s)
    * M6: Automatically submit when number is spoken
+   * Now supports multiple numbers in sequence - picks the correct one
    */
-  handleSpeechNumber(number) {
+  handleSpeechNumber(numbers) {
     const timestamp = performance.now();
     console.log(`[${timestamp.toFixed(2)}ms] === Speech Input ===`);
-    console.log('Recognized number:', number);
+    console.log('Recognized numbers:', numbers);
     console.log('Current problem:', this.mathProblem.currentProblem);
     console.log('Expected answer:', this.mathProblem.currentProblem?.answer);
     console.log('Processing flag:', this.processingAnswer);
@@ -248,14 +250,30 @@ export default class GameScene extends Phaser.Scene {
       this.speechFeedbackText.setText('');
     }
 
-    // Set as current answer and immediately submit
-    this.currentAnswer = String(number);
+    // Check if any of the recognized numbers is correct
+    const expectedAnswer = this.mathProblem.currentProblem?.answer;
+    let correctNumber = null;
+
+    for (const number of numbers) {
+      if (number === expectedAnswer) {
+        correctNumber = number;
+        console.log(`[${performance.now().toFixed(2)}ms] Found correct answer in sequence: ${number}`);
+        break;
+      }
+    }
+
+    // If no correct answer found, ignore this sequence
+    if (correctNumber === null) {
+      console.log(`[${performance.now().toFixed(2)}ms] No correct answer in sequence [${numbers.join(', ')}] - ignoring`);
+      return;
+    }
+
+    // Set the correct answer and submit
+    this.currentAnswer = String(correctNumber);
     this.answerText.setText(this.currentAnswer);
-    console.log(`[${performance.now().toFixed(2)}ms] Answer displayed on screen`);
+    console.log(`[${performance.now().toFixed(2)}ms] Correct answer displayed: ${correctNumber}`);
 
     // Mark answer as submitted to prevent timeout race condition
-    // This ensures that if timer expires while we're processing the answer,
-    // the timeout handler won't override the answer processing
     this.answerSubmitted = true;
     this.processingAnswer = true;
 
@@ -515,36 +533,28 @@ export default class GameScene extends Phaser.Scene {
    * Handle incorrect answer
    * M3.6: Show feedback, timer keeps running, can retry
    * M4: Record statistics
-   * M7: Add sound effects and screen shake
+   * M7: REMOVED - No longer shows feedback to avoid interrupting flow
    */
   handleIncorrectAnswer() {
-    console.log(`[${performance.now().toFixed(2)}ms] handleIncorrectAnswer() START`);
+    console.log(`[${performance.now().toFixed(2)}ms] handleIncorrectAnswer() - silently ignoring`);
 
-    // 1. M4: Record incorrect answer in statistics
+    // Record incorrect answer in statistics
     this.stats.recordIncorrectAnswer();
 
-    // 2. M7: Play incorrect answer sound
-    this.audioManager.playSFX(AUDIO.SFX.INCORRECT);
+    // NO sound, NO screen shake, NO visual feedback
+    // Just silently ignore and allow player to keep trying
 
-    // 3. M7: Screen shake and red flash
-    ScreenShake.shake(this);
-    this.particleEffects.createIncorrectFlash();
-
-    // 4. Show feedback (timer keeps running!)
-    this.feedbackText.setText('Try again!');
-    this.feedbackText.setColor('#ff0000');
-
-    // 5. Clear answer input so user can retry
+    // Clear answer input so user can retry
     this.currentAnswer = '';
     this.answerText.setText('_');
 
-    // 6. Reset processing flag so user can try again
+    // Reset processing flag so user can try again
     this.processingAnswer = false;
 
-    console.log(`[${performance.now().toFixed(2)}ms] handleIncorrectAnswer() COMPLETE - Ready for next attempt`);
+    console.log(`[${performance.now().toFixed(2)}ms] Wrong answer ignored - Ready for next attempt`);
 
-    // 6. Timer continues counting down
-    // Player can retry immediately
+    // Timer continues counting down
+    // Player can retry immediately without interruption
   }
 
   /**

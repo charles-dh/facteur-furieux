@@ -78,39 +78,29 @@ export default class FrenchSpeechRecognition {
 
       if (result.isFinal) {
         console.log(`[${timestamp.toFixed(2)}ms] SPEECH API: Final result received: "${transcript}"`);
-        // Final result - parse as number
-        const number = this.parseNumber(transcript);
+        // Final result - parse as number(s)
+        const numbers = this.parseNumber(transcript);
 
-        if (number !== null && this.onNumberRecognized) {
-          // Only trigger if we haven't already recognized this number from interim
-          const timeSinceLastRecognition = timestamp - this.lastRecognitionTime;
-          if (number !== this.lastRecognizedNumber || timeSinceLastRecognition > 2000) {
-            console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Calling onNumberRecognized(${number}) [FINAL]`);
-            this.lastRecognizedNumber = number;
-            this.lastRecognitionTime = timestamp;
-            this.onNumberRecognized(number);
-          } else {
-            console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Skipping duplicate final result for ${number}`);
-          }
+        if (numbers.length > 0 && this.onNumberRecognized) {
+          // Call callback with array of numbers
+          console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Calling onNumberRecognized([${numbers.join(', ')}]) [FINAL]`);
+          this.lastRecognitionTime = timestamp;
+          this.onNumberRecognized(numbers);
         } else {
-          console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Could not parse number from "${transcript}"`);
+          console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Could not parse numbers from "${transcript}"`);
         }
       } else {
-        // Interim result - try to parse as number for fast response
+        // Interim result - try to parse as number(s) for fast response
         console.log(`[${timestamp.toFixed(2)}ms] SPEECH API: Interim result: "${transcript}"`);
 
-        // Try to parse interim result as number
-        const number = this.parseNumber(transcript);
+        // Try to parse interim result as number(s)
+        const numbers = this.parseNumber(transcript);
 
-        if (number !== null && this.onNumberRecognized) {
-          // Accept interim result if it's a valid number and different from last
-          const timeSinceLastRecognition = timestamp - this.lastRecognitionTime;
-          if (number !== this.lastRecognizedNumber || timeSinceLastRecognition > 2000) {
-            console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Calling onNumberRecognized(${number}) [INTERIM - FAST]`);
-            this.lastRecognizedNumber = number;
-            this.lastRecognitionTime = timestamp;
-            this.onNumberRecognized(number);
-          }
+        if (numbers.length > 0 && this.onNumberRecognized) {
+          // Accept interim result - call with array of numbers
+          console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Calling onNumberRecognized([${numbers.join(', ')}]) [INTERIM - FAST]`);
+          this.lastRecognitionTime = timestamp;
+          this.onNumberRecognized(numbers);
         }
 
         // Also show interim feedback
@@ -206,16 +196,17 @@ export default class FrenchSpeechRecognition {
   }
 
   /**
-   * Parse French number text to numeric value
+   * Parse French number text to numeric value(s)
    *
    * Handles:
    * - Numeric digits (24, 10, 9) - Chrome often returns these directly
+   * - Multiple numbers in sequence ("12 18" → [12, 18])
    * - Basic numbers (deux → 2, dix → 10)
    * - Compound numbers (vingt-trois → 23)
    * - Special cases (soixante-dix → 70, quatre-vingt → 80)
    *
    * @param {string} text - Spoken text in French
-   * @returns {number|null} Numeric value or null if not a valid number
+   * @returns {number[]} Array of numeric values (empty if no valid numbers found)
    */
   parseNumber(text) {
     console.log('Parsing French text:', text);
@@ -223,12 +214,45 @@ export default class FrenchSpeechRecognition {
     // Remove common noise words
     text = text.replace(/^(euh|heu|alors|donc)\s+/gi, '').trim();
 
-    // Check if text is already a number (Chrome often converts speech to digits)
-    const numericValue = parseInt(text, 10);
-    if (!isNaN(numericValue) && numericValue >= 2 && numericValue <= 150) {
-      console.log('Already numeric:', numericValue);
-      return numericValue;
+    const results = [];
+
+    // Check if text contains multiple numeric digits separated by spaces
+    // e.g., "12 18" or "6 12 18"
+    const numericTokens = text.split(/\s+/);
+    let foundNumericSequence = false;
+
+    for (const token of numericTokens) {
+      const numericValue = parseInt(token, 10);
+      if (!isNaN(numericValue) && numericValue >= 2 && numericValue <= 150) {
+        console.log('Found numeric token:', numericValue);
+        results.push(numericValue);
+        foundNumericSequence = true;
+      }
     }
+
+    // If we found numeric sequences, return them
+    if (foundNumericSequence) {
+      console.log('Parsed numeric sequence:', results);
+      return results;
+    }
+
+    // Otherwise, try to parse as French text (single number)
+    const frenchNumber = this.parseFrenchText(text);
+    if (frenchNumber !== null) {
+      results.push(frenchNumber);
+    }
+
+    return results;
+  }
+
+  /**
+   * Parse French text to a single number
+   * Helper function for parseNumber()
+   *
+   * @param {string} text - French text to parse
+   * @returns {number|null} Numeric value or null if not valid
+   */
+  parseFrenchText(text) {
 
     // French number mappings
     const numbers = {
