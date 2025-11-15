@@ -10,7 +10,7 @@ export const PHYSICS = {
 };
 
 export const TIMING = {
-  PROBLEM_TIMER: 6 * 60, // 6 seconds at 60fps = 360 frames
+  PROBLEM_TIMER: 6000, // 6 seconds in milliseconds
   PROBLEM_READ_DELAY: 500, // 0.5 seconds delay before timer starts (gives time to read problem)
   CORRECT_ANSWER_DELAY: 1, // 0.5 seconds (30 frames) after correct answer
   TIMEOUT_DELAY: 10, // 0.16 seconds (10 frames) after timeout

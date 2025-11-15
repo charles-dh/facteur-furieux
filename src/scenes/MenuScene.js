@@ -118,6 +118,17 @@ export default class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    // Keyboard hint
+    this.add
+      .text(400, 360, "(touches 2-9, 0 pour 10, 1 pour tout)", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "8px",
+        color: "#888888",
+        stroke: "#000000",
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5);
+
     // Create table selection buttons
     this.selectedTables = new Set([2, 3, 4, 5]); // Default selection
     this.tableButtons = {};
@@ -143,7 +154,7 @@ export default class MenuScene extends Phaser.Scene {
    */
   createTableButtons() {
     const startX = 150;
-    const y = 400;
+    const y = 420;  // Moved down to make room for keyboard hint
     const spacing = 70;
 
     for (let table = 2; table <= 10; table++) {
@@ -239,7 +250,7 @@ export default class MenuScene extends Phaser.Scene {
    * Create "Select All" toggle button
    */
   createSelectAllButton() {
-    const y = 490;
+    const y = 510;  // Adjusted spacing
 
     this.selectAllButton = this.add
       .text(400, y, "[ Tout sélectionner ]", {
@@ -306,7 +317,7 @@ export default class MenuScene extends Phaser.Scene {
    * Create start button
    */
   createStartButton() {
-    const y = 580;
+    const y = 600;  // Adjusted spacing
 
     this.startButton = this.add
       .text(400, y, "[ COMMENCER ]", {
@@ -366,7 +377,7 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   /**
-   * Setup keyboard input for name editing
+   * Setup keyboard input for name editing and table selection
    */
   setupNameInput() {
     // Press N to edit name
@@ -380,13 +391,55 @@ export default class MenuScene extends Phaser.Scene {
         this.startGame();
       }
     });
+
+    // Press number keys 2-9 to toggle tables
+    // Press 0 to toggle table 10
+    this.input.keyboard.on("keydown", (event) => {
+      const key = event.key;
+
+      // Handle number keys 2-9
+      if (key >= '2' && key <= '9') {
+        const tableNumber = parseInt(key, 10);
+        this.toggleTableWithKeyboard(tableNumber);
+      }
+      // Handle 0 for table 10
+      else if (key === '0') {
+        this.toggleTableWithKeyboard(10);
+      }
+      // Handle 1 to toggle "Select All"
+      else if (key === '1') {
+        this.toggleSelectAll();
+      }
+    });
+  }
+
+  /**
+   * Toggle table using keyboard with visual feedback
+   */
+  toggleTableWithKeyboard(table) {
+    // Play click sound
+    this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+
+    // Animate button press
+    const { button, text } = this.tableButtons[table];
+    this.tweens.add({
+      targets: [button, text],
+      scaleX: 0.9,
+      scaleY: 0.9,
+      duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
+      yoyo: true,
+      ease: "Quad.easeInOut",
+    });
+
+    // Toggle the table
+    this.toggleTable(table);
   }
 
   /**
    * Create leaderboard button
    */
   createLeaderboardButton() {
-    const y = 640;
+    const y = 660;  // Adjusted spacing
 
     this.leaderboardButton = this.add
       .text(400, y, "[ CLASSEMENT ]", {

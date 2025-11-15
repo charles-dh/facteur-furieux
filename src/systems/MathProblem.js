@@ -24,7 +24,7 @@ export default class MathProblem {
     // Current problem {a, b, answer}
     this.currentProblem = null;
 
-    // Timer in frames (6 seconds = 360 frames at 60 FPS)
+    // Timer in milliseconds (6 seconds = 6000ms)
     this.timer = 0;
     this.timerMax = TIMING.PROBLEM_TIMER;
     this.timerActive = false;
@@ -102,12 +102,8 @@ export default class MathProblem {
   updateTimer(delta) {
     if (!this.timerActive) return;
 
-    // Convert delta to frames (assuming 60 FPS)
-    // delta is in milliseconds, so delta/1000 = seconds
-    // At 60 FPS, 1 second = 60 frames
-    const frameDelta = (delta / 1000) * 60;
-
-    this.timer -= frameDelta;
+    // Subtract delta milliseconds directly from timer
+    this.timer -= delta;
 
     if (this.timer <= 0) {
       this.timer = 0;

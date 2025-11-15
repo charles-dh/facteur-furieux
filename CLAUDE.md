@@ -18,14 +18,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - [`docs/technical-architecture.md`](./docs/technical-architecture.md) - System design and implementation details
 - [`docs/implementation-plan.md`](./docs/implementation-plan.md) - Development milestones
 
-## Development Commands
-
-```bash
-npm run dev          # Start dev server (http://localhost:3000)
-npm run build        # Production build
-npm run preview      # Preview production build
-```
-
 ## Code Style & Philosophy
 
 Follow these principles when writing or modifying code:
