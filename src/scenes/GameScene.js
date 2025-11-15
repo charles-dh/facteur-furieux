@@ -225,8 +225,11 @@ export default class GameScene extends Phaser.Scene {
     this.startNewProblem();
     console.log('First problem started');
 
-    // M4: Start race timer (use Phaser time for consistency)
-    this.stats.startRace(this.time.now);
+    // M4: Start race timer
+    // Use 0 as the baseline - we'll calculate elapsed time using deltas
+    this.raceStartTime = 0;
+    this.stats.startRace(0);  // Statistics tracker starts at 0
+    this.elapsedTime = 0;  // Track accumulated elapsed time
 
     console.log('=== GameScene.create() completed ===');
     console.log('GameScene created! Answer with voice or keyboard, D for debug');
@@ -697,6 +700,9 @@ export default class GameScene extends Phaser.Scene {
   update(_time, delta) {
     // M2: Physics-based movement (replaces M1 constant-speed)
 
+    // Accumulate elapsed time from deltas (resets properly between scenes)
+    this.elapsedTime += delta;
+
     // Update physics simulation
     // This handles velocity, friction, acceleration, and position updates
     this.vehiclePhysics.update(delta);
@@ -752,7 +758,8 @@ export default class GameScene extends Phaser.Scene {
    * M7: Add celebration effects
    */
   onLapComplete() {
-    const lapData = this.stats.completeLap(this.time.now);
+    // Use accumulated elapsed time (resets properly between games)
+    const lapData = this.stats.completeLap(this.elapsedTime);
 
     console.log(`Lap ${lapData.lapNumber} complete: ${this.stats.formatTime(lapData.lapTime)}`);
 
@@ -807,7 +814,7 @@ export default class GameScene extends Phaser.Scene {
     this.answersText.setText(`Correct: ${this.stats.correctAnswers} / ${this.stats.totalAnswers}`);
 
     // Update lap times (right side)
-    const currentLapTime = this.stats.getCurrentLapTime(this.time.now);
+    const currentLapTime = this.stats.getCurrentLapTime(this.elapsedTime);
     const lastLapTime = this.stats.getLastLapTime();
 
     let timesText = `Current: ${this.stats.formatTime(currentLapTime)}\n`;
@@ -822,8 +829,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.lapTimesText.setText(timesText);
 
-    // Update total time
-    const totalTime = this.time.now - this.stats.raceStartTime;
+    // Update total time (use stats.totalTime if race complete, otherwise use current elapsed time)
+    const totalTime = this.stats.isRaceComplete ? this.stats.totalTime : this.elapsedTime;
     this.totalTimeText.setText(`Total: ${this.stats.formatTime(totalTime)}`);
   }
 
