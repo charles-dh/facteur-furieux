@@ -49,6 +49,9 @@ export default class FrenchSpeechRecognition {
 
     // State
     this.isListening = false;
+    this.lastRecognizedNumber = null; // Track last number to avoid duplicates
+    this.lastRecognitionTime = 0; // Timestamp of last recognition
+    this.ignoreUntil = 0; // Ignore speech input until this timestamp (for cooldown periods)
 
     // Setup event handlers
     this.setupEventHandlers();
@@ -61,19 +64,56 @@ export default class FrenchSpeechRecognition {
    */
   setupEventHandlers() {
     this.recognition.onresult = (event) => {
+      const timestamp = performance.now();
+
+      // Check if we're in cooldown period (ignore all input)
+      if (timestamp < this.ignoreUntil) {
+        console.log(`[${timestamp.toFixed(2)}ms] SPEECH API: IGNORING input during cooldown (${(this.ignoreUntil - timestamp).toFixed(0)}ms remaining)`);
+        return;
+      }
+
       // Get the latest result
       const result = event.results[event.results.length - 1];
       const transcript = result[0].transcript.trim().toLowerCase();
 
       if (result.isFinal) {
+        console.log(`[${timestamp.toFixed(2)}ms] SPEECH API: Final result received: "${transcript}"`);
         // Final result - parse as number
         const number = this.parseNumber(transcript);
 
         if (number !== null && this.onNumberRecognized) {
-          this.onNumberRecognized(number);
+          // Only trigger if we haven't already recognized this number from interim
+          const timeSinceLastRecognition = timestamp - this.lastRecognitionTime;
+          if (number !== this.lastRecognizedNumber || timeSinceLastRecognition > 2000) {
+            console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Calling onNumberRecognized(${number}) [FINAL]`);
+            this.lastRecognizedNumber = number;
+            this.lastRecognitionTime = timestamp;
+            this.onNumberRecognized(number);
+          } else {
+            console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Skipping duplicate final result for ${number}`);
+          }
+        } else {
+          console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Could not parse number from "${transcript}"`);
         }
       } else {
-        // Interim result - for visual feedback
+        // Interim result - try to parse as number for fast response
+        console.log(`[${timestamp.toFixed(2)}ms] SPEECH API: Interim result: "${transcript}"`);
+
+        // Try to parse interim result as number
+        const number = this.parseNumber(transcript);
+
+        if (number !== null && this.onNumberRecognized) {
+          // Accept interim result if it's a valid number and different from last
+          const timeSinceLastRecognition = timestamp - this.lastRecognitionTime;
+          if (number !== this.lastRecognizedNumber || timeSinceLastRecognition > 2000) {
+            console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Calling onNumberRecognized(${number}) [INTERIM - FAST]`);
+            this.lastRecognizedNumber = number;
+            this.lastRecognitionTime = timestamp;
+            this.onNumberRecognized(number);
+          }
+        }
+
+        // Also show interim feedback
         if (this.onInterimResult) {
           this.onInterimResult(transcript);
         }
@@ -135,6 +175,34 @@ export default class FrenchSpeechRecognition {
     this.isListening = false;
     this.recognition.stop();
     console.log('Speech recognition stopped');
+  }
+
+  /**
+   * Reset recognition state (called when new problem starts)
+   * Sets a cooldown to ignore lingering speech from previous problem
+   *
+   * Note: Does NOT reset lastRecognizedNumber/Time - this allows duplicate detection
+   * to persist across problems and catch delayed interim results from previous answers
+   *
+   * @param {number} cooldownMs - Milliseconds to ignore speech input (default: 800ms)
+   */
+  reset(cooldownMs = 800) {
+    // DO NOT reset lastRecognizedNumber/lastRecognitionTime here!
+    // Keeping them allows us to catch delayed results from the previous problem
+    // The 2-second timeout in the duplicate check handles legitimate repeated answers
+    this.ignoreUntil = performance.now() + cooldownMs;
+    console.log(`Speech recognition cooldown set: ${cooldownMs}ms (keeping duplicate tracking)`);
+  }
+
+  /**
+   * Set a cooldown period to ignore speech input
+   * Useful after accepting an answer to prevent trailing audio from triggering
+   *
+   * @param {number} durationMs - Milliseconds to ignore speech input
+   */
+  setCooldown(durationMs) {
+    this.ignoreUntil = performance.now() + durationMs;
+    console.log(`Speech cooldown set: ${durationMs}ms`);
   }
 
   /**

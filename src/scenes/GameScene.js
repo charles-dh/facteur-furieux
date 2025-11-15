@@ -119,6 +119,8 @@ export default class GameScene extends Phaser.Scene {
 
     // M3: Initialize answer input
     this.currentAnswer = '';
+    this.answerSubmitted = false; // Flag to prevent timeout race condition
+    this.processingAnswer = false; // Flag to prevent multiple simultaneous submissions
 
     // M3: Setup keyboard input for answers
     this.setupAnswerInput();
@@ -228,10 +230,18 @@ export default class GameScene extends Phaser.Scene {
    * M6: Automatically submit when number is spoken
    */
   handleSpeechNumber(number) {
-    console.log('=== Speech Input ===');
+    const timestamp = performance.now();
+    console.log(`[${timestamp.toFixed(2)}ms] === Speech Input ===`);
     console.log('Recognized number:', number);
     console.log('Current problem:', this.mathProblem.currentProblem);
     console.log('Expected answer:', this.mathProblem.currentProblem?.answer);
+    console.log('Processing flag:', this.processingAnswer);
+
+    // Ignore if we're already processing an answer
+    if (this.processingAnswer) {
+      console.log(`[${performance.now().toFixed(2)}ms] IGNORED: Already processing an answer`);
+      return;
+    }
 
     // Clear speech feedback
     if (this.speechFeedbackText) {
@@ -241,8 +251,20 @@ export default class GameScene extends Phaser.Scene {
     // Set as current answer and immediately submit
     this.currentAnswer = String(number);
     this.answerText.setText(this.currentAnswer);
+    console.log(`[${performance.now().toFixed(2)}ms] Answer displayed on screen`);
 
-    console.log('Submitting answer:', this.currentAnswer);
+    // Mark answer as submitted to prevent timeout race condition
+    // This ensures that if timer expires while we're processing the answer,
+    // the timeout handler won't override the answer processing
+    this.answerSubmitted = true;
+    this.processingAnswer = true;
+
+    // Set speech cooldown immediately to prevent lingering final results from being processed
+    if (this.speech && this.speech.supported) {
+      this.speech.setCooldown(500); // Ignore speech for 500ms after answer accepted
+    }
+
+    console.log(`[${performance.now().toFixed(2)}ms] Calling submitAnswer()`);
 
     // Auto-submit (no need to press Enter with voice)
     this.submitAnswer();
@@ -390,14 +412,24 @@ export default class GameScene extends Phaser.Scene {
     // M7: Play problem appear sound
     this.audioManager.playSFX(AUDIO.SFX.PROBLEM_APPEAR);
 
-    // Start timer
-    this.mathProblem.startTimer();
+    // Start timer after a short delay to give player time to read the problem
+    // This prevents the timer from starting immediately and gives better UX
+    this.time.delayedCall(TIMING.PROBLEM_READ_DELAY, () => {
+      this.mathProblem.startTimer();
+    });
 
     // Clear feedback and answer
     this.feedbackText.setText('');
     this.feedbackText.setScale(1); // Reset scale
     this.currentAnswer = '';
     this.answerText.setText('_');
+    this.answerSubmitted = false; // Reset flag for new problem
+    this.processingAnswer = false; // Reset processing flag for new problem
+
+    // M6: Reset speech recognition to allow same number to be recognized again
+    if (this.speech && this.speech.supported) {
+      this.speech.reset();
+    }
   }
 
   /**
@@ -405,14 +437,17 @@ export default class GameScene extends Phaser.Scene {
    * M3.6: Check answer, apply boost or show error
    */
   submitAnswer() {
+    console.log(`[${performance.now().toFixed(2)}ms] submitAnswer() called`);
+
     if (!this.currentAnswer) {
       console.log('No answer to submit');
+      this.processingAnswer = false;
       return;
     }
 
-    console.log('Checking answer:', this.currentAnswer, 'against expected:', this.mathProblem.currentProblem?.answer);
+    console.log(`[${performance.now().toFixed(2)}ms] Checking answer:`, this.currentAnswer, 'against expected:', this.mathProblem.currentProblem?.answer);
     const isCorrect = this.mathProblem.checkAnswer(this.currentAnswer);
-    console.log('Answer is correct:', isCorrect);
+    console.log(`[${performance.now().toFixed(2)}ms] Answer is correct:`, isCorrect);
 
     if (isCorrect) {
       this.handleCorrectAnswer();
@@ -428,11 +463,15 @@ export default class GameScene extends Phaser.Scene {
    * M7: Add sound effects and visual effects
    */
   handleCorrectAnswer() {
+    console.log(`[${performance.now().toFixed(2)}ms] handleCorrectAnswer() START`);
+
     // 1. Calculate boost based on remaining timer
     const boostStrength = this.mathProblem.calculateBoost();
+    console.log(`[${performance.now().toFixed(2)}ms] Boost calculated:`, boostStrength);
 
     // 2. Apply boost to physics
     this.vehiclePhysics.applyBoost(boostStrength);
+    console.log(`[${performance.now().toFixed(2)}ms] Boost APPLIED to vehicle`);
 
     // 3. Stop timer
     this.mathProblem.timerActive = false;
@@ -441,25 +480,30 @@ export default class GameScene extends Phaser.Scene {
     this.stats.recordCorrectAnswer();
 
     // 5. M7: Play correct answer sound
-    this.audioManager.playSFX(AUDIO.SFX.CORRECT);
+    // DISABLED FOR TESTING
+    // this.audioManager.playSFX(AUDIO.SFX.CORRECT);
 
     // 6. M7: Show visual effect (green flash and particles)
-    this.particleEffects.createCorrectFlash(400, 300);
+    // DISABLED FOR TESTING
+    // this.particleEffects.createCorrectFlash(400, 300);
 
     // 7. Show feedback with animation
+    // DISABLED FOR TESTING
     this.feedbackText.setText(`Correct! +${boostStrength.toFixed(2)} boost`);
     this.feedbackText.setColor('#00ff00');
-    this.feedbackText.setScale(0.8);
-    this.tweens.add({
-      targets: this.feedbackText,
-      scale: 1,
-      duration: 200,
-      ease: 'Back.easeOut'
-    });
+    // this.feedbackText.setScale(0.8);
+    // this.tweens.add({
+    //   targets: this.feedbackText,
+    //   scale: 1,
+    //   duration: 200,
+    //   ease: 'Back.easeOut'
+    // });
 
     // 8. Clear answer
     this.currentAnswer = '';
     this.answerText.setText('');
+
+    console.log(`[${performance.now().toFixed(2)}ms] handleCorrectAnswer() COMPLETE`);
 
     // 9. Schedule next problem after delay
     this.time.delayedCall(TIMING.CORRECT_ANSWER_DELAY, () => {
@@ -474,6 +518,8 @@ export default class GameScene extends Phaser.Scene {
    * M7: Add sound effects and screen shake
    */
   handleIncorrectAnswer() {
+    console.log(`[${performance.now().toFixed(2)}ms] handleIncorrectAnswer() START`);
+
     // 1. M4: Record incorrect answer in statistics
     this.stats.recordIncorrectAnswer();
 
@@ -491,6 +537,11 @@ export default class GameScene extends Phaser.Scene {
     // 5. Clear answer input so user can retry
     this.currentAnswer = '';
     this.answerText.setText('_');
+
+    // 6. Reset processing flag so user can try again
+    this.processingAnswer = false;
+
+    console.log(`[${performance.now().toFixed(2)}ms] handleIncorrectAnswer() COMPLETE - Ready for next attempt`);
 
     // 6. Timer continues counting down
     // Player can retry immediately
@@ -542,7 +593,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Check for timeout
-    if (this.mathProblem.timer <= 0 && this.mathProblem.timerActive === false) {
+    // Only timeout if timer expired AND no answer was submitted (prevents race condition)
+    if (this.mathProblem.timer <= 0 && this.mathProblem.timerActive === false && !this.answerSubmitted) {
       // Only handle timeout once
       if (!this.timeoutHandled) {
         this.timeoutHandled = true;
@@ -630,7 +682,7 @@ export default class GameScene extends Phaser.Scene {
     console.log('Car created at start position');
   }
 
-  update(time, delta) {
+  update(_time, delta) {
     // M2: Physics-based movement (replaces M1 constant-speed)
 
     // Update physics simulation
