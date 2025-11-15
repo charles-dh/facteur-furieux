@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { COLORS } from '../config/colors.js';
+import { AUDIO, EFFECTS } from '../config/audioConfig.js';
+import AudioManager from '../systems/AudioManager.js';
+import SoundGenerator from '../systems/SoundGenerator.js';
 
 /**
  * GameOverScene - Results and replay screen
@@ -11,6 +14,8 @@ import { COLORS } from '../config/colors.js';
  * - Correct/incorrect answer counts
  *
  * Allows player to restart the game
+ *
+ * M7: Added UI animations and sound effects
  */
 export default class GameOverScene extends Phaser.Scene {
   constructor() {
@@ -30,7 +35,32 @@ export default class GameOverScene extends Phaser.Scene {
     console.log('GameOverScene initialized with results:', this.results);
   }
 
+  /**
+   * Preload audio assets
+   * M7: Generate sound effects for menu interactions
+   */
+  preload() {
+    console.log('GameOverScene: Generating sound effects...');
+
+    // Create sound generator
+    const generator = new SoundGenerator();
+
+    // Generate menu sounds
+    const sounds = [
+      { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
+      { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() }
+    ];
+
+    // Convert buffers to base64 and load into Phaser
+    sounds.forEach(({ key, buffer }) => {
+      const dataUri = generator.bufferToBase64WAV(buffer);
+      this.load.audio(key, dataUri);
+    });
+  }
+
   create() {
+    // M7: Initialize audio manager
+    this.audioManager = new AudioManager(this);
     // Background (dark green to match game aesthetic)
     this.add.rectangle(400, 400, 800, 800, 0x004400);
 
@@ -137,6 +167,8 @@ export default class GameOverScene extends Phaser.Scene {
     playAgainButton.setInteractive({ useHandCursor: true });
 
     playAgainButton.on('pointerover', () => {
+      // M7: Play hover sound
+      this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
       playAgainButton.setColor('#ffff00');
     });
 
@@ -145,7 +177,18 @@ export default class GameOverScene extends Phaser.Scene {
     });
 
     playAgainButton.on('pointerdown', () => {
-      this.restartGame();
+      // M7: Play click sound and animation
+      this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+      this.tweens.add({
+        targets: playAgainButton,
+        scaleX: 0.95,
+        scaleY: 0.95,
+        duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
+        yoyo: true,
+        onComplete: () => {
+          this.restartGame();
+        }
+      });
     });
 
     // Also allow Enter key to restart
