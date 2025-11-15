@@ -1,11 +1,16 @@
 import Phaser from 'phaser';
 import { COLORS } from '../config/colors.js';
 import { TRACK, CAR, PHYSICS, TIMING } from '../config/constants.js';
+import { AUDIO } from '../config/audioConfig.js';
 import Track from '../systems/Track.js';
 import VehiclePhysics from '../systems/VehiclePhysics.js';
 import MathProblem from '../systems/MathProblem.js';
 import StatisticsTracker from '../systems/StatisticsTracker.js';
 import FrenchSpeechRecognition from '../systems/FrenchSpeechRecognition.js';
+import AudioManager from '../systems/AudioManager.js';
+import ParticleEffects from '../systems/ParticleEffects.js';
+import SoundGenerator from '../systems/SoundGenerator.js';
+import ScreenShake from '../effects/ScreenShake.js';
 
 /**
  * GameScene - Main gameplay scene
@@ -32,6 +37,38 @@ export default class GameScene extends Phaser.Scene {
     console.log('GameScene initialized with tables:', this.selectedTables, 'Player:', this.playerName);
   }
 
+  /**
+   * Preload audio assets
+   * M7: Generate procedural sound effects using Web Audio API
+   */
+  preload() {
+    console.log('Generating sound effects...');
+
+    // Create sound generator
+    const generator = new SoundGenerator();
+
+    // Generate all sound effects and load them as base64 data URIs
+    const sounds = [
+      { key: AUDIO.SFX.ACCELERATE, buffer: generator.generateAccelerateSound() },
+      { key: AUDIO.SFX.CORRECT, buffer: generator.generateCorrectSound() },
+      { key: AUDIO.SFX.INCORRECT, buffer: generator.generateIncorrectSound() },
+      { key: AUDIO.SFX.LAP_COMPLETE, buffer: generator.generateLapCompleteSound() },
+      { key: AUDIO.SFX.PROBLEM_APPEAR, buffer: generator.generateProblemAppearSound() },
+      { key: AUDIO.SFX.COUNTDOWN_TICK, buffer: generator.generateCountdownTickSound() },
+      { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
+      { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() },
+      { key: AUDIO.SFX.GAME_START, buffer: generator.generateGameStartSound() }
+    ];
+
+    // Convert buffers to base64 and load into Phaser
+    sounds.forEach(({ key, buffer }) => {
+      const dataUri = generator.bufferToBase64WAV(buffer);
+      this.load.audio(key, dataUri);
+    });
+
+    console.log('Sound effects generated and queued for loading');
+  }
+
   create() {
     console.log('=== GameScene.create() started ===');
 
@@ -40,6 +77,11 @@ export default class GameScene extends Phaser.Scene {
     // as a rectangle to ensure it's visible if canvas is resized
     this.add.rectangle(400, 400, 800, 800, COLORS.GRASS_GREEN);
     console.log('Background added');
+
+    // M7: Initialize audio and effects systems
+    this.audioManager = new AudioManager(this);
+    this.particleEffects = new ParticleEffects(this);
+    console.log('Audio and particle effects initialized');
 
     // Create track system
     this.track = new Track(this);
@@ -324,6 +366,7 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Start a new problem
    * M3.6: Generate problem, start timer, clear feedback
+   * M7: Add sound and animation
    */
   startNewProblem() {
     // Generate new problem
@@ -333,11 +376,26 @@ export default class GameScene extends Phaser.Scene {
     const p = this.mathProblem.currentProblem;
     this.problemText.setText(`${p.a} × ${p.b} = ?`);
 
+    // M7: Animate problem appearance
+    this.problemText.setAlpha(0);
+    this.problemText.setScale(0.8);
+    this.tweens.add({
+      targets: this.problemText,
+      alpha: 1,
+      scale: 1,
+      duration: 300,
+      ease: 'Back.easeOut'
+    });
+
+    // M7: Play problem appear sound
+    this.audioManager.playSFX(AUDIO.SFX.PROBLEM_APPEAR);
+
     // Start timer
     this.mathProblem.startTimer();
 
     // Clear feedback and answer
     this.feedbackText.setText('');
+    this.feedbackText.setScale(1); // Reset scale
     this.currentAnswer = '';
     this.answerText.setText('_');
   }
@@ -367,6 +425,7 @@ export default class GameScene extends Phaser.Scene {
    * Handle correct answer
    * M3.6: Calculate boost, apply to physics, show feedback, next problem
    * M4: Record statistics
+   * M7: Add sound effects and visual effects
    */
   handleCorrectAnswer() {
     // 1. Calculate boost based on remaining timer
@@ -381,15 +440,28 @@ export default class GameScene extends Phaser.Scene {
     // 4. M4: Record correct answer in statistics
     this.stats.recordCorrectAnswer();
 
-    // 5. Show feedback
+    // 5. M7: Play correct answer sound
+    this.audioManager.playSFX(AUDIO.SFX.CORRECT);
+
+    // 6. M7: Show visual effect (green flash and particles)
+    this.particleEffects.createCorrectFlash(400, 300);
+
+    // 7. Show feedback with animation
     this.feedbackText.setText(`Correct! +${boostStrength.toFixed(2)} boost`);
     this.feedbackText.setColor('#00ff00');
+    this.feedbackText.setScale(0.8);
+    this.tweens.add({
+      targets: this.feedbackText,
+      scale: 1,
+      duration: 200,
+      ease: 'Back.easeOut'
+    });
 
-    // 6. Clear answer
+    // 8. Clear answer
     this.currentAnswer = '';
     this.answerText.setText('');
 
-    // 7. Schedule next problem after delay
+    // 9. Schedule next problem after delay
     this.time.delayedCall(TIMING.CORRECT_ANSWER_DELAY, () => {
       this.startNewProblem();
     });
@@ -399,39 +471,51 @@ export default class GameScene extends Phaser.Scene {
    * Handle incorrect answer
    * M3.6: Show feedback, timer keeps running, can retry
    * M4: Record statistics
+   * M7: Add sound effects and screen shake
    */
   handleIncorrectAnswer() {
     // 1. M4: Record incorrect answer in statistics
     this.stats.recordIncorrectAnswer();
 
-    // 2. Show feedback (timer keeps running!)
+    // 2. M7: Play incorrect answer sound
+    this.audioManager.playSFX(AUDIO.SFX.INCORRECT);
+
+    // 3. M7: Screen shake and red flash
+    ScreenShake.shake(this);
+    this.particleEffects.createIncorrectFlash();
+
+    // 4. Show feedback (timer keeps running!)
     this.feedbackText.setText('Try again!');
     this.feedbackText.setColor('#ff0000');
 
-    // 3. Clear answer input so user can retry
+    // 5. Clear answer input so user can retry
     this.currentAnswer = '';
     this.answerText.setText('_');
 
-    // 4. Timer continues counting down
+    // 6. Timer continues counting down
     // Player can retry immediately
   }
 
   /**
    * Handle timer timeout
    * M3.6: No boost, show timeout message, next problem
+   * M7: Add sound effect
    */
   handleTimeout() {
     // 1. No boost applied (critical!)
 
-    // 2. Show timeout message
+    // 2. M7: Play timeout sound (same as incorrect for now)
+    this.audioManager.playSFX(AUDIO.SFX.INCORRECT, 0.7);
+
+    // 3. Show timeout message
     this.feedbackText.setText('Time up!');
     this.feedbackText.setColor('#ff6600');
 
-    // 3. Clear answer
+    // 4. Clear answer
     this.currentAnswer = '';
     this.answerText.setText('');
 
-    // 4. Schedule next problem (shorter delay than correct answer)
+    // 5. Schedule next problem (shorter delay than correct answer)
     this.time.delayedCall(TIMING.TIMEOUT_DELAY, () => {
       this.startNewProblem();
     });
@@ -440,6 +524,7 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Update timer bar visual
    * M3.6: Update width and color based on remaining time
+   * M7: Enhanced color feedback and pulsing animation
    */
   updateTimerBar() {
     const percent = this.mathProblem.getRemainingPercent();
@@ -600,11 +685,19 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Handle lap completion
    * M4: Record lap time, check for game over
+   * M7: Add celebration effects
    */
   onLapComplete() {
     const lapData = this.stats.completeLap(this.time.now);
 
     console.log(`Lap ${lapData.lapNumber} complete: ${this.stats.formatTime(lapData.lapTime)}`);
+
+    // M7: Play lap complete sound
+    this.audioManager.playSFX(AUDIO.SFX.LAP_COMPLETE);
+
+    // M7: Show celebration particles (confetti at finish line)
+    const finishPos = this.track.getPositionAt(0);
+    this.particleEffects.createLapCelebration(finishPos.x, finishPos.y);
 
     // Check if race is complete (3 laps)
     if (lapData.isFinalLap) {

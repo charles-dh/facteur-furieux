@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { COLORS } from '../config/colors.js';
+import { AUDIO, EFFECTS } from '../config/audioConfig.js';
+import AudioManager from '../systems/AudioManager.js';
+import SoundGenerator from '../systems/SoundGenerator.js';
 
 /**
  * MenuScene - Welcome screen with configuration
@@ -13,13 +16,40 @@ import { COLORS } from '../config/colors.js';
  * - Students can focus on specific tables (e.g., harder ones like 7, 8, 9)
  * - Or practice all tables for comprehensive review
  * - Selection validation ensures at least one table chosen
+ *
+ * M7: Added UI animations and sound effects for enhanced feedback
  */
 export default class MenuScene extends Phaser.Scene {
   constructor() {
     super({ key: 'MenuScene' });
   }
 
+  /**
+   * Preload audio assets
+   * M7: Generate sound effects for menu interactions
+   */
+  preload() {
+    console.log('MenuScene: Generating sound effects...');
+
+    // Create sound generator
+    const generator = new SoundGenerator();
+
+    // Generate menu sounds
+    const sounds = [
+      { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
+      { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() }
+    ];
+
+    // Convert buffers to base64 and load into Phaser
+    sounds.forEach(({ key, buffer }) => {
+      const dataUri = generator.bufferToBase64WAV(buffer);
+      this.load.audio(key, dataUri);
+    });
+  }
+
   create() {
+    // M7: Initialize audio manager
+    this.audioManager = new AudioManager(this);
     // Background (dark green)
     this.add.rectangle(400, 400, 800, 800, 0x004400);
 
@@ -124,13 +154,29 @@ export default class MenuScene extends Phaser.Scene {
       // Update visual state
       this.updateTableButtonState(table);
 
-      // Click handler
+      // Click handler with sound and animation
       button.on('pointerdown', () => {
+        // M7: Play click sound
+        this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+
+        // M7: Button press animation
+        this.tweens.add({
+          targets: [button, text],
+          scaleX: 0.9,
+          scaleY: 0.9,
+          duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
+          yoyo: true,
+          ease: 'Quad.easeInOut'
+        });
+
         this.toggleTable(table);
       });
 
-      // Hover effects
+      // Hover effects with sound
       button.on('pointerover', () => {
+        // M7: Play hover sound
+        this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
+
         if (!this.selectedTables.has(table)) {
           button.setFillStyle(0x555555);
         }
@@ -189,10 +235,22 @@ export default class MenuScene extends Phaser.Scene {
     this.selectAllButton.setInteractive({ useHandCursor: true });
 
     this.selectAllButton.on('pointerdown', () => {
+      // M7: Play click sound and animation
+      this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+      this.tweens.add({
+        targets: this.selectAllButton,
+        scaleX: 0.95,
+        scaleY: 0.95,
+        duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
+        yoyo: true
+      });
+
       this.toggleSelectAll();
     });
 
     this.selectAllButton.on('pointerover', () => {
+      // M7: Play hover sound
+      this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
       this.selectAllButton.setColor('#ffffff');
     });
 
@@ -242,11 +300,25 @@ export default class MenuScene extends Phaser.Scene {
     this.startButton.setInteractive({ useHandCursor: true });
 
     this.startButton.on('pointerdown', () => {
+      if (this.selectedTables.size > 0) {
+        // M7: Play click sound and animation
+        this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+        this.tweens.add({
+          targets: this.startButton,
+          scaleX: 0.95,
+          scaleY: 0.95,
+          duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
+          yoyo: true
+        });
+      }
+
       this.startGame();
     });
 
     this.startButton.on('pointerover', () => {
       if (this.selectedTables.size > 0) {
+        // M7: Play hover sound
+        this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
         this.startButton.setColor('#ffff00');
       }
     });
