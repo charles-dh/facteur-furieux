@@ -129,6 +129,9 @@ export default class MenuScene extends Phaser.Scene {
     // Start button
     this.createStartButton();
 
+    // Leaderboard button
+    this.createLeaderboardButton();
+
     // Setup keyboard input for name editing
     this.setupNameInput();
 
@@ -380,6 +383,49 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   /**
+   * Create leaderboard button
+   */
+  createLeaderboardButton() {
+    const y = 640;
+
+    this.leaderboardButton = this.add
+      .text(400, y, "[ CLASSEMENT ]", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "16px",
+        color: "#ffff00",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
+
+    this.leaderboardButton.setInteractive({ useHandCursor: true });
+
+    this.leaderboardButton.on("pointerdown", () => {
+      // Play click sound and animation
+      this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+      this.tweens.add({
+        targets: this.leaderboardButton,
+        scaleX: 0.95,
+        scaleY: 0.95,
+        duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
+        yoyo: true,
+        onComplete: () => {
+          this.viewLeaderboard();
+        }
+      });
+    });
+
+    this.leaderboardButton.on("pointerover", () => {
+      this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
+      this.leaderboardButton.setColor("#ffffff");
+    });
+
+    this.leaderboardButton.on("pointerout", () => {
+      this.leaderboardButton.setColor("#ffff00");
+    });
+  }
+
+  /**
    * Edit player name (simple prompt for MVP)
    * M5: Using browser prompt for simplicity
    * Could be enhanced with custom input UI later
@@ -391,6 +437,14 @@ export default class MenuScene extends Phaser.Scene {
       this.playerName = newName.trim();
       this.nameText.setText(this.playerName);
     }
+  }
+
+  /**
+   * View the leaderboard
+   */
+  viewLeaderboard() {
+    console.log('Opening leaderboard');
+    this.scene.start('LeaderboardScene');
   }
 
   /**

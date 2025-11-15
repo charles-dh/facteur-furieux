@@ -38,10 +38,16 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Preload audio assets
+   * Preload assets
    * M7: Generate procedural sound effects using Web Audio API
+   * Also preload car sprite
    */
   preload() {
+    console.log('Preloading assets...');
+
+    // Preload car sprite
+    this.load.image('car', 'assets/red_car_top.png');
+
     console.log('Generating sound effects...');
 
     // Create sound generator
@@ -660,25 +666,21 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Create the car sprite using code-generated graphics
-   * Uses a simple triangle shape pointing in the direction of travel
+   * Create the car sprite
+   * Uses a top-down car image sprite
    */
   createCar() {
-    // Create graphics object for the car
-    const carGraphics = this.add.graphics();
+    // Create sprite from preloaded image
+    // The sprite should be oriented pointing upward in the source image
+    this.car = this.add.sprite(0, 0, 'car');
 
-    // Draw a simple triangle (wedge shape) for the car
-    // Triangle points forward (up in local coordinates)
-    // Origin is at center for proper rotation
-    carGraphics.fillStyle(COLORS.CAR_RED, 1);
-    carGraphics.fillTriangle(
-      0, -CAR.HEIGHT / 2,      // Top point (front of car)
-      -CAR.WIDTH / 2, CAR.HEIGHT / 2,  // Bottom-left
-      CAR.WIDTH / 2, CAR.HEIGHT / 2    // Bottom-right
-    );
+    // Set origin to center for proper rotation
+    this.car.setOrigin(0.5, 0.5);
 
-    // Store reference to car graphics
-    this.car = carGraphics;
+    // Scale the sprite to appropriate size
+    // Adjust these values based on your sprite's actual size
+    // CAR.WIDTH and CAR.HEIGHT are the desired display size
+    this.car.setDisplaySize(CAR.WIDTH, CAR.HEIGHT);
 
     // Position car slightly behind the start/finish line
     // Use -0.005 progress (slightly before the line at 0.0)
@@ -686,10 +688,10 @@ export default class GameScene extends Phaser.Scene {
     this.car.setPosition(startPos.x, startPos.y);
 
     // Rotate car to match track direction
-    // Add PI/2 because triangle points up but we want it to follow the track tangent
+    // Add PI/2 because sprite points up but we want it to follow the track tangent
     this.car.setRotation(startPos.angle + Math.PI / 2);
 
-    console.log('Car created at start position');
+    console.log('Car sprite created at start position');
   }
 
   update(_time, delta) {

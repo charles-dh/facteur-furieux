@@ -3,6 +3,7 @@ import { COLORS } from '../config/colors.js';
 import { AUDIO, EFFECTS } from '../config/audioConfig.js';
 import AudioManager from '../systems/AudioManager.js';
 import SoundGenerator from '../systems/SoundGenerator.js';
+import LeaderboardManager from '../systems/LeaderboardManager.js';
 
 /**
  * GameOverScene - Results and replay screen
@@ -61,14 +62,48 @@ export default class GameOverScene extends Phaser.Scene {
   create() {
     // M7: Initialize audio manager
     this.audioManager = new AudioManager(this);
+
+    // Initialize leaderboard manager and save score
+    this.leaderboard = new LeaderboardManager();
+    this.savedRank = this.leaderboard.addScore({
+      playerName: this.playerName,
+      totalTime: this.results.totalTime,
+      accuracy: this.results.accuracy,
+      lapTimes: this.results.lapTimes,
+      correctAnswers: this.results.correctAnswers,
+      totalAnswers: this.results.totalAnswers
+    });
+
+    // Log if score made the leaderboard
+    if (this.savedRank !== null) {
+      console.log(`Score saved to leaderboard at rank ${this.savedRank}`);
+    } else {
+      console.log('Score did not make top 10');
+    }
+
     // Background (dark green to match game aesthetic)
     this.add.rectangle(400, 400, 800, 800, 0x004400);
 
-    // Title
-    this.add.text(400, 80, 'COURSE TERMINÉE!', {
+    // Title (with special message if new high score)
+    let titleText = 'COURSE TERMINÉE!';
+    let titleColor = '#ffff00';
+
+    if (this.savedRank !== null) {
+      if (this.savedRank === 1) {
+        titleText = 'NOUVEAU RECORD! 🏆';
+        titleColor = '#FFD700'; // Gold
+      } else if (this.savedRank <= 3) {
+        titleText = `TOP ${this.savedRank}! 🎉`;
+        titleColor = '#00ff00';
+      } else if (this.savedRank <= 10) {
+        titleText = `TOP ${this.savedRank}! ⭐`;
+      }
+    }
+
+    this.add.text(400, 80, titleText, {
       fontFamily: '"Press Start 2P"',
       fontSize: '32px',
-      color: '#ffff00',
+      color: titleColor,
       stroke: '#000000',
       strokeThickness: 6
     }).setOrigin(0.5);
@@ -153,8 +188,46 @@ export default class GameOverScene extends Phaser.Scene {
       }).setOrigin(0.5);
     });
 
+    // View Leaderboard button
+    const leaderboardY = 650;
+    const leaderboardButton = this.add.text(400, leaderboardY, '[ VOIR CLASSEMENT ]', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '16px',
+      color: '#ffff00',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    leaderboardButton.setInteractive({ useHandCursor: true });
+
+    leaderboardButton.on('pointerover', () => {
+      this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
+      leaderboardButton.setColor('#ffffff');
+    });
+
+    leaderboardButton.on('pointerout', () => {
+      leaderboardButton.setColor('#ffff00');
+    });
+
+    leaderboardButton.on('pointerdown', () => {
+      this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+      this.tweens.add({
+        targets: leaderboardButton,
+        scaleX: 0.95,
+        scaleY: 0.95,
+        duration: EFFECTS.ANIMATIONS.BUTTON_PRESS,
+        yoyo: true,
+        onComplete: () => {
+          // Navigate to leaderboard with highlight
+          this.scene.start('LeaderboardScene', {
+            highlightRank: this.savedRank
+          });
+        }
+      });
+    });
+
     // Play Again button
-    const playAgainY = 680;
+    const playAgainY = 710;
     const playAgainButton = this.add.text(400, playAgainY, '[ REJOUER ]', {
       fontFamily: '"Press Start 2P"',
       fontSize: '20px',
