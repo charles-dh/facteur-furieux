@@ -141,6 +141,7 @@ export default class FrenchSpeechRecognition {
    * Parse French number text to numeric value
    *
    * Handles:
+   * - Numeric digits (24, 10, 9) - Chrome often returns these directly
    * - Basic numbers (deux → 2, dix → 10)
    * - Compound numbers (vingt-trois → 23)
    * - Special cases (soixante-dix → 70, quatre-vingt → 80)
@@ -153,6 +154,13 @@ export default class FrenchSpeechRecognition {
 
     // Remove common noise words
     text = text.replace(/^(euh|heu|alors|donc)\s+/gi, '').trim();
+
+    // Check if text is already a number (Chrome often converts speech to digits)
+    const numericValue = parseInt(text, 10);
+    if (!isNaN(numericValue) && numericValue >= 2 && numericValue <= 150) {
+      console.log('Already numeric:', numericValue);
+      return numericValue;
+    }
 
     // French number mappings
     const numbers = {
