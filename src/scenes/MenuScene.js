@@ -84,6 +84,10 @@ export default class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    // Input mode selection toggle (voice/keyboard)
+    this.inputMode = this.loadInputMode();
+    this.createInputModeToggle();
+
     // Name input section
     this.add
       .text(400, 200, "Nom:", {
@@ -490,6 +494,141 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   /**
+   * Create input mode toggle (voice/keyboard)
+   * Shows mic and keyboard emoji icons with visual selection state
+   * Positioned in bottom right corner
+   */
+  createInputModeToggle() {
+    // Bottom right corner positioning
+    const baseX = 720; // Right side with padding
+    const baseY = 720; // Bottom with padding
+    const spacing = 50; // Spacing between icons
+
+    // Mic icon (left)
+    this.micIcon = this.add
+      .text(baseX - spacing / 2, baseY, "🎤", {
+        fontFamily: "Arial", // Emoji font
+        fontSize: "32px",
+        color: "#ffff00",
+      })
+      .setOrigin(0.5);
+
+    // Keyboard icon (right)
+    this.keyboardIcon = this.add
+      .text(baseX + spacing / 2, baseY, "⌨️", {
+        fontFamily: "Arial", // Emoji font
+        fontSize: "32px",
+        color: "#aaaaaa",
+      })
+      .setOrigin(0.5);
+
+    // Make both icons interactive
+    this.micIcon.setInteractive({ useHandCursor: true });
+    this.keyboardIcon.setInteractive({ useHandCursor: true });
+
+    // Click handlers
+    this.micIcon.on("pointerdown", () => {
+      this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+      this.setInputMode("voice");
+    });
+
+    this.keyboardIcon.on("pointerdown", () => {
+      this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
+      this.setInputMode("keyboard");
+    });
+
+    // Hover effects
+    this.micIcon.on("pointerover", () => {
+      this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
+      if (this.inputMode !== "voice") {
+        this.micIcon.setScale(1.1);
+      }
+    });
+
+    this.micIcon.on("pointerout", () => {
+      if (this.inputMode !== "voice") {
+        this.micIcon.setScale(1.0);
+      }
+    });
+
+    this.keyboardIcon.on("pointerover", () => {
+      this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
+      if (this.inputMode !== "keyboard") {
+        this.keyboardIcon.setScale(1.1);
+      }
+    });
+
+    this.keyboardIcon.on("pointerout", () => {
+      if (this.inputMode !== "keyboard") {
+        this.keyboardIcon.setScale(1.0);
+      }
+    });
+
+    // Set initial visual state
+    this.updateInputModeVisuals();
+  }
+
+  /**
+   * Set input mode and update visuals
+   * @param {string} mode - 'voice' or 'keyboard'
+   */
+  setInputMode(mode) {
+    this.inputMode = mode;
+    this.saveInputMode(mode);
+    this.updateInputModeVisuals();
+  }
+
+  /**
+   * Update visual state of input mode icons
+   * Selected: full color (yellow text color), alpha 1.0
+   * Unselected: greyed out with reduced alpha (0.3)
+   */
+  updateInputModeVisuals() {
+    if (this.inputMode === "voice") {
+      // Mic: selected (full color)
+      this.micIcon.setAlpha(1.0);
+      this.micIcon.setTint(0xffffff); // No tint (full color)
+      // Keyboard: unselected (greyed out)
+      this.keyboardIcon.setAlpha(0.3);
+      this.keyboardIcon.setTint(0x888888); // Grey tint
+    } else {
+      // Keyboard: selected (full color)
+      this.keyboardIcon.setAlpha(1.0);
+      this.keyboardIcon.setTint(0xffffff); // No tint (full color)
+      // Mic: unselected (greyed out)
+      this.micIcon.setAlpha(0.3);
+      this.micIcon.setTint(0x888888); // Grey tint
+    }
+  }
+
+  /**
+   * Load input mode from localStorage
+   * @returns {string} - Saved input mode or default "voice"
+   */
+  loadInputMode() {
+    try {
+      const savedMode = localStorage.getItem("facteur_furieux_input_mode");
+      return savedMode === "keyboard" ? "keyboard" : "voice"; // Default to voice
+    } catch (error) {
+      console.error("Error loading input mode:", error);
+      return "voice";
+    }
+  }
+
+  /**
+   * Save input mode to localStorage
+   * @param {string} mode - Input mode to save ('voice' or 'keyboard')
+   */
+  saveInputMode(mode) {
+    try {
+      localStorage.setItem("facteur_furieux_input_mode", mode);
+      console.log("Input mode saved:", mode);
+    } catch (error) {
+      console.error("Error saving input mode:", error);
+    }
+  }
+
+  /**
    * Load player name from localStorage
    * @returns {string} - Saved player name or default "Pilote"
    */
@@ -559,6 +698,7 @@ export default class MenuScene extends Phaser.Scene {
     this.scene.start("GameScene", {
       playerName: this.playerName,
       selectedTables: Array.from(this.selectedTables).sort((a, b) => a - b),
+      inputMode: this.inputMode,
     });
   }
 }

@@ -34,11 +34,14 @@ export default class GameScene extends Phaser.Scene {
   init(data) {
     this.selectedTables = data.selectedTables || [2, 3, 4, 5];
     this.playerName = data.playerName || "Pilote";
+    this.inputMode = data.inputMode || "voice"; // Default to voice
     console.log(
       "GameScene initialized with tables:",
       this.selectedTables,
       "Player:",
-      this.playerName
+      this.playerName,
+      "Input mode:",
+      this.inputMode
     );
   }
 
@@ -97,11 +100,11 @@ export default class GameScene extends Phaser.Scene {
     console.log("Sound effects generated and queued for loading");
 
     // Add event listener to verify loading
-    this.load.on('filecomplete-audio', (key) => {
+    this.load.on("filecomplete-audio", (key) => {
       console.log(`Audio loaded successfully: ${key}`);
     });
 
-    this.load.on('loaderror', (file) => {
+    this.load.on("loaderror", (file) => {
       console.error(`Failed to load: ${file.key}`, file);
     });
   }
@@ -115,11 +118,11 @@ export default class GameScene extends Phaser.Scene {
       AUDIO.SFX.BOOST,
       AUDIO.SFX.INCORRECT,
       AUDIO.SFX.LAP_COMPLETE,
-      AUDIO.SFX.PROBLEM_APPEAR
+      AUDIO.SFX.PROBLEM_APPEAR,
     ];
-    audioKeys.forEach(key => {
+    audioKeys.forEach((key) => {
       const exists = this.cache.audio.exists(key);
-      console.log(`Audio ${key}: ${exists ? 'EXISTS' : 'MISSING'}`);
+      console.log(`Audio ${key}: ${exists ? "EXISTS" : "MISSING"}`);
     });
 
     // Add grass green background
@@ -134,10 +137,10 @@ export default class GameScene extends Phaser.Scene {
     console.log("Audio and particle effects initialized");
 
     // Unlock audio context on first user interaction (required by browsers)
-    this.input.once('pointerdown', () => {
+    this.input.once("pointerdown", () => {
       if (this.sound.context) {
         this.sound.context.resume().then(() => {
-          console.log('Audio context unlocked in GameScene');
+          console.log("Audio context unlocked in GameScene");
         });
       }
     });
@@ -234,19 +237,21 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(1000); // Ensure it's on top of everything
     console.log("Debug panel created");
 
-    // M6: Setup speech recognition
+    // M6: Setup speech recognition (only if voice mode is selected)
     this.speech = new FrenchSpeechRecognition();
 
-    if (this.speech.supported) {
+    if (this.inputMode === "voice" && this.speech.supported) {
       // Setup callbacks
       this.speech.onNumberRecognized = (number) => {
         this.handleSpeechNumber(number);
       };
 
       this.speech.onInterimResult = (text) => {
-        // Show what's being heard (visual feedback)
-        if (this.speechFeedbackText) {
-          this.speechFeedbackText.setText(text);
+        // Show interim speech in the main answer display (yellow, on board)
+        // This unifies voice and keyboard input display
+        if (this.answerText) {
+          this.answerText.setText(text || "_");
+          this.answerText.setColor("#ffff00"); // Yellow, same as keyboard
         }
       };
 
@@ -266,37 +271,17 @@ export default class GameScene extends Phaser.Scene {
         .text(400, 530, "🎤 Écoute...", {
           fontFamily: '"Press Start 2P"',
           fontSize: "12px",
-          color: "#00ff00",
-          stroke: "#000000",
-          strokeThickness: 2,
-        })
-        .setOrigin(0.5);
-
-      // Add speech feedback text (shows what's being heard)
-      this.speechFeedbackText = this.add
-        .text(400, 505, "", {
-          fontFamily: '"Press Start 2P"',
-          fontSize: "10px",
-          color: "#aaaaaa",
+          color: "#555555", // Dark grey instead of green
           stroke: "#000000",
           strokeThickness: 2,
         })
         .setOrigin(0.5);
 
       console.log("Speech recognition started");
+    } else if (this.inputMode === "voice" && !this.speech.supported) {
+      console.log("Speech recognition not supported in this browser");
     } else {
-      // Show keyboard-only indicator
-      this.add
-        .text(400, 450, "Clavier uniquement", {
-          fontFamily: '"Press Start 2P"',
-          fontSize: "12px",
-          color: "#888888",
-          stroke: "#000000",
-          strokeThickness: 2,
-        })
-        .setOrigin(0.5);
-
-      console.log("Speech recognition not supported - keyboard only");
+      console.log("Keyboard input mode selected");
     }
 
     // M3: Start first problem
@@ -338,10 +323,8 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Clear speech feedback
-    if (this.speechFeedbackText) {
-      this.speechFeedbackText.setText("");
-    }
+    // Note: Speech feedback is now shown in answerText (unified with keyboard input)
+    // No need to clear separately - the correct answer will be displayed below
 
     // Check if any of the recognized numbers is correct
     const expectedAnswer = this.mathProblem.currentProblem?.answer;
@@ -584,9 +567,11 @@ export default class GameScene extends Phaser.Scene {
       .rectangle(400, 370, 400, 20, COLORS.TIMER_GREEN)
       .setOrigin(0.5);
 
-    // Answer display (shows what user is typing) - positioned below timer bar
+    // Answer display (shows what user is typing) - vertically centered in empty space
+    // Space is between timer bar (y:370) and feedback (y:450)
+    // Center point: (370 + 450) / 2 = 410
     this.answerText = this.add
-      .text(400, 400, "", {
+      .text(400, 450, "", {
         fontFamily: '"Press Start 2P"',
         fontSize: "24px",
         color: "#ffff00",
@@ -610,26 +595,36 @@ export default class GameScene extends Phaser.Scene {
   /**
    * Setup keyboard input for answering problems
    * M3.5: Numeric input, backspace, enter to submit
+   * Only active when keyboard input mode is selected
    */
   setupAnswerInput() {
-    // Numeric input (0-9)
-    this.input.keyboard.on("keydown", (event) => {
-      if (event.key >= "0" && event.key <= "9") {
-        this.currentAnswer += event.key;
+    // Only enable numeric keyboard input if in keyboard mode
+    if (this.inputMode === "keyboard") {
+      // Numeric input (0-9)
+      this.input.keyboard.on("keydown", (event) => {
+        if (event.key >= "0" && event.key <= "9") {
+          this.currentAnswer += event.key;
+          this.answerText.setText(this.currentAnswer || "_");
+          // Reset color to yellow when typing (in case it was red from wrong answer)
+          this.answerText.setColor("#ffff00");
+        }
+      });
+
+      // Backspace to delete digits
+      this.input.keyboard.on("keydown-BACKSPACE", () => {
+        this.currentAnswer = this.currentAnswer.slice(0, -1);
         this.answerText.setText(this.currentAnswer || "_");
-      }
-    });
+      });
 
-    // Backspace to delete digits
-    this.input.keyboard.on("keydown-BACKSPACE", () => {
-      this.currentAnswer = this.currentAnswer.slice(0, -1);
-      this.answerText.setText(this.currentAnswer || "_");
-    });
+      // Enter to submit answer
+      this.input.keyboard.on("keydown-ENTER", () => {
+        this.submitAnswer();
+      });
+    }
 
-    // Enter to submit answer
-    this.input.keyboard.on("keydown-ENTER", () => {
-      this.submitAnswer();
-    });
+    // Debug keys always active regardless of input mode
+    // (D for debug info, T for test finish, ESC for menu)
+    // These are already set up elsewhere in the code
   }
 
   /**
@@ -719,26 +714,30 @@ export default class GameScene extends Phaser.Scene {
    */
   playCorrectAnswerAnimation(answer) {
     // Create temporary blue text at answer position (below timer bar)
-    const answerAnimation = this.add.text(400, 400, String(answer), {
-      fontFamily: '"Press Start 2P"',
-      fontSize: "24px",
-      color: "#00aaff", // Blue color
-      stroke: "#000000",
-      strokeThickness: 4,
-    })
-    .setOrigin(0.5)
-    .setDepth(1000); // Ensure it's on top
+    const answerAnimation = this.add
+      .text(400, 430, String(answer), {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "24px",
+        color: "#00aaff", // Blue color
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(1000); // Ensure it's on top
+
+    // Animation duration - adjust this value to make the animation faster or slower
+    const ANIMATION_DURATION = 500; // milliseconds (500ms = half a second)
 
     // Animate: scale up rapidly while fading out
     this.tweens.add({
       targets: answerAnimation,
       scale: 3.5, // Grow to 3.5x size
       alpha: 0, // Fade to transparent
-      duration: 350, // 350ms for quick, non-distracting effect
+      duration: ANIMATION_DURATION,
       ease: "Quad.easeOut", // Fast start, smooth end
       onComplete: () => {
         answerAnimation.destroy(); // Clean up after animation
-      }
+      },
     });
   }
 
@@ -789,7 +788,7 @@ export default class GameScene extends Phaser.Scene {
       targets: this.feedbackText,
       scale: 1,
       duration: 200,
-      ease: 'Back.easeOut'
+      ease: "Back.easeOut",
     });
 
     // 9. Clear answer
