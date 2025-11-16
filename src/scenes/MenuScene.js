@@ -50,6 +50,16 @@ export default class MenuScene extends Phaser.Scene {
   create() {
     // M7: Initialize audio manager
     this.audioManager = new AudioManager(this);
+
+    // Unlock audio context on first user interaction (required by browsers)
+    this.input.once('pointerdown', () => {
+      if (this.sound.context) {
+        this.sound.context.resume().then(() => {
+          console.log('Audio context unlocked');
+        });
+      }
+    });
+
     // Background (dark green)
     this.add.rectangle(400, 400, 800, 800, 0x004400);
 

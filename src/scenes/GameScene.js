@@ -53,6 +53,10 @@ export default class GameScene extends Phaser.Scene {
     // Preload car sprite
     this.load.image("car", "assets/red_car_top.png");
 
+    // Load boost sound from MP3 file
+    this.load.audio(AUDIO.SFX.BOOST, "assets/sports_car_vroom.mp3");
+    console.log("Loading boost sound from MP3...");
+
     console.log("Generating sound effects...");
 
     // Create sound generator
@@ -64,7 +68,7 @@ export default class GameScene extends Phaser.Scene {
         key: AUDIO.SFX.ACCELERATE,
         buffer: generator.generateAccelerateSound(),
       },
-      { key: AUDIO.SFX.CORRECT, buffer: generator.generateCorrectSound() },
+      // CORRECT sound removed - using BOOST MP3 file instead
       { key: AUDIO.SFX.INCORRECT, buffer: generator.generateIncorrectSound() },
       {
         key: AUDIO.SFX.LAP_COMPLETE,
@@ -87,13 +91,36 @@ export default class GameScene extends Phaser.Scene {
     sounds.forEach(({ key, buffer }) => {
       const dataUri = generator.bufferToBase64WAV(buffer);
       this.load.audio(key, dataUri);
+      console.log(`Queued audio: ${key}`);
     });
 
     console.log("Sound effects generated and queued for loading");
+
+    // Add event listener to verify loading
+    this.load.on('filecomplete-audio', (key) => {
+      console.log(`Audio loaded successfully: ${key}`);
+    });
+
+    this.load.on('loaderror', (file) => {
+      console.error(`Failed to load: ${file.key}`, file);
+    });
   }
 
   create() {
     console.log("=== GameScene.create() started ===");
+
+    // Verify sounds are in cache
+    console.log("Checking audio cache...");
+    const audioKeys = [
+      AUDIO.SFX.BOOST,
+      AUDIO.SFX.INCORRECT,
+      AUDIO.SFX.LAP_COMPLETE,
+      AUDIO.SFX.PROBLEM_APPEAR
+    ];
+    audioKeys.forEach(key => {
+      const exists = this.cache.audio.exists(key);
+      console.log(`Audio ${key}: ${exists ? 'EXISTS' : 'MISSING'}`);
+    });
 
     // Add grass green background
     // Note: Background color is also set in gameConfig, but we add this
@@ -105,6 +132,15 @@ export default class GameScene extends Phaser.Scene {
     this.audioManager = new AudioManager(this);
     this.particleEffects = new ParticleEffects(this);
     console.log("Audio and particle effects initialized");
+
+    // Unlock audio context on first user interaction (required by browsers)
+    this.input.once('pointerdown', () => {
+      if (this.sound.context) {
+        this.sound.context.resume().then(() => {
+          console.log('Audio context unlocked in GameScene');
+        });
+      }
+    });
 
     // Create track system
     this.track = new Track(this);
@@ -170,6 +206,20 @@ export default class GameScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-D", () => {
       this.debugMode = !this.debugMode;
       console.log("Debug mode:", this.debugMode ? "ON" : "OFF");
+    });
+
+    // Test audio with T key (for debugging)
+    this.input.keyboard.on("keydown-T", () => {
+      console.log("=== Testing audio playback ===");
+      console.log("Audio context state:", this.sound.context?.state);
+      console.log("Sound manager locked:", this.sound.locked);
+      console.log("Muted:", this.audioManager.isMuted());
+      console.log("Volumes:", this.audioManager.getVolumes());
+
+      // Try to play a test sound (boost sound)
+      console.log("Attempting to play BOOST sound...");
+      const result = this.audioManager.playBoostSound(0.8);
+      console.log("Play result:", result);
     });
 
     // Create debug text panel (bottom-left corner)
@@ -690,25 +740,22 @@ export default class GameScene extends Phaser.Scene {
     // 4. M4: Record correct answer in statistics
     this.stats.recordCorrectAnswer();
 
-    // 5. M7: Play correct answer sound
-    // DISABLED FOR TESTING
-    // this.audioManager.playSFX(AUDIO.SFX.CORRECT);
+    // 5. M7: Play boost sound (replaces correct answer chime)
+    this.audioManager.playBoostSound(boostStrength);
 
     // 6. M7: Show visual effect (green flash and particles)
-    // DISABLED FOR TESTING
-    // this.particleEffects.createCorrectFlash(400, 300);
+    this.particleEffects.createCorrectFlash(400, 300);
 
     // 7. Show feedback with animation
-    // DISABLED FOR TESTING
     this.feedbackText.setText(`Correct! +${boostStrength.toFixed(2)} boost`);
     this.feedbackText.setColor("#00ff00");
-    // this.feedbackText.setScale(0.8);
-    // this.tweens.add({
-    //   targets: this.feedbackText,
-    //   scale: 1,
-    //   duration: 200,
-    //   ease: 'Back.easeOut'
-    // });
+    this.feedbackText.setScale(0.8);
+    this.tweens.add({
+      targets: this.feedbackText,
+      scale: 1,
+      duration: 200,
+      ease: 'Back.easeOut'
+    });
 
     // 8. Clear answer
     this.currentAnswer = "";
@@ -1032,6 +1079,9 @@ export default class GameScene extends Phaser.Scene {
     } else if (this.boostEmitter.emitting) {
       this.boostEmitter.stop();
       this.boostEmitter.setVisible(false);
+
+      // Stop boost sound when boost effect ends
+      this.audioManager.stopBoostSound();
     }
 
     // M2.4: Update speed indicator

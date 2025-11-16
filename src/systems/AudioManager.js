@@ -31,6 +31,10 @@ export default class AudioManager {
     // Currently playing music
     this.currentMusic = null;
 
+    // Currently playing boost sound
+    this.currentBoostSound = null;
+    this.boostFadeTween = null;
+
     // Load settings from localStorage
     this.loadSettings();
 
@@ -47,14 +51,16 @@ export default class AudioManager {
   playSFX(key, volume = 1.0) {
     if (this.muted) return null;
 
-    // Check if sound exists
-    if (!this.scene.sound.get(key)) {
-      console.warn(`Sound effect '${key}' not found`);
+    // Check if sound exists in cache
+    if (!this.scene.cache.audio.exists(key)) {
+      console.warn(`Sound effect '${key}' not found in cache`);
       return null;
     }
 
     // Calculate final volume (master × sfx × individual)
     const finalVolume = this.volumes.master * this.volumes.sfx * volume;
+
+    console.log(`Playing SFX: ${key} at volume ${finalVolume.toFixed(2)}`);
 
     // Play the sound
     const sound = this.scene.sound.add(key);
@@ -72,6 +78,68 @@ export default class AudioManager {
     const sound = this.scene.sound.get(key);
     if (sound && sound.isPlaying) {
       sound.stop();
+    }
+  }
+
+  /**
+   * Play boost sound synchronized with boost effect
+   * The sound will play until stopBoostSound() is called
+   *
+   * @param {number} boostStrength - Boost strength (0-1) affects volume
+   * @returns {Phaser.Sound.BaseSound|null} The sound instance or null if muted
+   */
+  playBoostSound(boostStrength) {
+    if (this.muted) return null;
+
+    // Stop any currently playing boost sound
+    this.stopBoostSound();
+
+    // Check if sound exists in cache
+    if (!this.scene.cache.audio.exists(AUDIO.SFX.BOOST)) {
+      console.warn(`Boost sound '${AUDIO.SFX.BOOST}' not found in cache`);
+      return null;
+    }
+
+    // Calculate volume based on boost strength (stronger boost = louder)
+    const boostVolume = 0.5 + (boostStrength * 0.5); // Range: 0.5 to 1.0
+    const finalVolume = this.volumes.master * this.volumes.sfx * boostVolume;
+
+    console.log(`Playing boost sound at volume ${finalVolume.toFixed(2)} (boost: ${boostStrength.toFixed(2)})`);
+
+    // Play the boost sound
+    this.currentBoostSound = this.scene.sound.add(AUDIO.SFX.BOOST);
+    this.currentBoostSound.play({ volume: finalVolume });
+
+    return this.currentBoostSound;
+  }
+
+  /**
+   * Stop boost sound with fade out
+   * Called when boost effect ends
+   */
+  stopBoostSound() {
+    // Cancel any existing fade tween
+    if (this.boostFadeTween) {
+      this.boostFadeTween.stop();
+      this.boostFadeTween = null;
+    }
+
+    // Fade out and stop the boost sound if playing
+    if (this.currentBoostSound && this.currentBoostSound.isPlaying) {
+      console.log('Fading out boost sound');
+
+      this.boostFadeTween = this.scene.tweens.add({
+        targets: this.currentBoostSound,
+        volume: 0,
+        duration: AUDIO.BOOST_FADE_OUT,
+        onComplete: () => {
+          if (this.currentBoostSound) {
+            this.currentBoostSound.stop();
+            this.currentBoostSound = null;
+          }
+          this.boostFadeTween = null;
+        }
+      });
     }
   }
 

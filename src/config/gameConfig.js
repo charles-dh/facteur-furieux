@@ -16,5 +16,9 @@ export const gameConfig = {
   render: {
     pixelArt: true, // Crisp rendering for retro aesthetic
     antialias: false
+  },
+  audio: {
+    noAudio: false,
+    disableWebAudio: false
   }
 };

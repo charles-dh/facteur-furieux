@@ -16,6 +16,7 @@ export const AUDIO = {
   SFX: {
     ACCELERATE: "sfx_accelerate",
     CORRECT: "sfx_correct",
+    BOOST: "sfx_boost", // Sports car vroom sound for boost
     INCORRECT: "sfx_incorrect",
     LAP_COMPLETE: "sfx_lap_complete",
     PROBLEM_APPEAR: "sfx_problem_appear",
@@ -34,6 +35,7 @@ export const AUDIO = {
 
   // Effect settings
   FADE_DURATION: 500, // ms for crossfade between tracks
+  BOOST_FADE_OUT: 1000, // ms for boost sound fade out
   MAX_SIMULTANEOUS_SFX: 8, // Limit concurrent sound effects
 
   // LocalStorage keys for persistence
