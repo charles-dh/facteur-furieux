@@ -189,8 +189,8 @@ export default class GameScene extends Phaser.Scene {
       // Start listening
       this.speech.start();
 
-      // Add microphone status indicator
-      this.micStatusText = this.add.text(400, 450, '🎤 Écoute...', {
+      // Add microphone status indicator (positioned inside scoreboard)
+      this.micStatusText = this.add.text(400, 485, '🎤 Écoute...', {
         fontFamily: '"Press Start 2P"',
         fontSize: '12px',
         color: '#00ff00',
@@ -428,8 +428,39 @@ export default class GameScene extends Phaser.Scene {
    * M3.4: Problem display, timer bar, answer input, feedback
    */
   createProblemUI() {
-    // Problem display (centered, large text)
-    this.problemText = this.add.text(400, 250, '', {
+    // Create scoreboard background frame (dark grey with yellow border and rounded corners)
+    // Position and dimensions calculated to frame all UI elements nicely
+    // Includes microphone status indicator
+    const scoreboardWidth = 460;
+    const scoreboardHeight = 260; // Increased to fit microphone status
+    const scoreboardX = 400;
+    const scoreboardY = 370; // Shifted down to center with new height
+    const cornerRadius = 15; // Rounded corner radius
+
+    // Draw background with rounded corners using Graphics
+    this.scoreboardBg = this.add.graphics();
+    this.scoreboardBg.fillStyle(0x2a2a2a, 1); // Dark grey
+    this.scoreboardBg.fillRoundedRect(
+      scoreboardX - scoreboardWidth / 2,
+      scoreboardY - scoreboardHeight / 2,
+      scoreboardWidth,
+      scoreboardHeight,
+      cornerRadius
+    );
+
+    // Draw yellow border with rounded corners
+    this.scoreboardBorder = this.add.graphics();
+    this.scoreboardBorder.lineStyle(4, 0xffff00); // 4px yellow border
+    this.scoreboardBorder.strokeRoundedRect(
+      scoreboardX - scoreboardWidth / 2,
+      scoreboardY - scoreboardHeight / 2,
+      scoreboardWidth,
+      scoreboardHeight,
+      cornerRadius
+    );
+
+    // Problem display (centered, large text) - adjusted Y position
+    this.problemText = this.add.text(400, 300, '', {
       fontFamily: '"Press Start 2P"',
       fontSize: '32px',
       color: '#ffffff',
@@ -437,15 +468,15 @@ export default class GameScene extends Phaser.Scene {
       strokeThickness: 6
     }).setOrigin(0.5);
 
-    // Timer bar background (gray rectangle)
-    this.timerBarBg = this.add.rectangle(400, 320, 400, 20, 0x333333);
+    // Timer bar background (gray rectangle) - adjusted Y position
+    this.timerBarBg = this.add.rectangle(400, 370, 400, 20, 0x333333);
 
-    // Timer bar fill (starts green, changes to yellow/red)
-    this.timerBarFill = this.add.rectangle(400, 320, 400, 20, COLORS.TIMER_GREEN)
+    // Timer bar fill (starts green, changes to yellow/red) - adjusted Y position
+    this.timerBarFill = this.add.rectangle(400, 370, 400, 20, COLORS.TIMER_GREEN)
       .setOrigin(0.5);
 
-    // Answer display (shows what user is typing)
-    this.answerText = this.add.text(400, 360, '', {
+    // Answer display (shows what user is typing) - adjusted Y position
+    this.answerText = this.add.text(400, 410, '', {
       fontFamily: '"Press Start 2P"',
       fontSize: '24px',
       color: '#ffff00',
@@ -453,8 +484,8 @@ export default class GameScene extends Phaser.Scene {
       strokeThickness: 4
     }).setOrigin(0.5);
 
-    // Feedback text (correct/incorrect/timeout messages)
-    this.feedbackText = this.add.text(400, 410, '', {
+    // Feedback text (correct/incorrect/timeout messages) - adjusted Y position
+    this.feedbackText = this.add.text(400, 450, '', {
       fontFamily: '"Press Start 2P"',
       fontSize: '16px',
       color: '#00ff00',
@@ -714,7 +745,30 @@ export default class GameScene extends Phaser.Scene {
     // Center at (400, 400), radius 320
     graphics.strokeCircle(400, 400, 320);
 
-    console.log('Track rendered as circle');
+    // Draw dashed line in middle of track (lane divider)
+    // Middle radius = 320px (no offset, centered in the 60px wide track)
+    const dashLength = 15;
+    const gapLength = 10;
+    const middleRadius = 320;
+    const centerX = 400;
+    const centerY = 400;
+    const circumference = 2 * Math.PI * middleRadius;
+    const segmentLength = dashLength + gapLength;
+    const numSegments = Math.floor(circumference / segmentLength);
+
+    graphics.lineStyle(3, 0xffffff, 0.6); // White dashed line, semi-transparent
+
+    for (let i = 0; i < numSegments; i++) {
+      const startAngle = (i * segmentLength / circumference) * Math.PI * 2;
+      const endAngle = startAngle + (dashLength / circumference) * Math.PI * 2;
+
+      // Draw arc segment for dash
+      graphics.beginPath();
+      graphics.arc(centerX, centerY, middleRadius, startAngle - Math.PI / 2, endAngle - Math.PI / 2);
+      graphics.strokePath();
+    }
+
+    console.log('Track rendered as circle with dashed lane divider');
 
     // Draw start/finish line (white bar perpendicular to track)
     // Position it at progress = 0 (top center)
