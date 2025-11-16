@@ -246,7 +246,7 @@ export default class GameScene extends Phaser.Scene {
       this.speech.onInterimResult = (text) => {
         // Show what's being heard (visual feedback)
         if (this.speechFeedbackText) {
-          this.speechFeedbackText.setText(`Écoute: "${text}"`);
+          this.speechFeedbackText.setText(text);
         }
       };
 
@@ -261,9 +261,9 @@ export default class GameScene extends Phaser.Scene {
       // Start listening
       this.speech.start();
 
-      // Add microphone status indicator (positioned inside scoreboard)
+      // Add microphone status indicator (positioned outside/below scoreboard)
       this.micStatusText = this.add
-        .text(400, 485, "🎤 Écoute...", {
+        .text(400, 530, "🎤 Écoute...", {
           fontFamily: '"Press Start 2P"',
           fontSize: "12px",
           color: "#00ff00",
@@ -274,7 +274,7 @@ export default class GameScene extends Phaser.Scene {
 
       // Add speech feedback text (shows what's being heard)
       this.speechFeedbackText = this.add
-        .text(400, 480, "", {
+        .text(400, 505, "", {
           fontFamily: '"Press Start 2P"',
           fontSize: "10px",
           color: "#aaaaaa",
@@ -584,9 +584,9 @@ export default class GameScene extends Phaser.Scene {
       .rectangle(400, 370, 400, 20, COLORS.TIMER_GREEN)
       .setOrigin(0.5);
 
-    // Answer display (shows what user is typing) - adjusted Y position
+    // Answer display (shows what user is typing) - positioned below timer bar
     this.answerText = this.add
-      .text(400, 410, "", {
+      .text(400, 400, "", {
         fontFamily: '"Press Start 2P"',
         fontSize: "24px",
         color: "#ffff00",
@@ -670,6 +670,7 @@ export default class GameScene extends Phaser.Scene {
     this.feedbackText.setScale(1); // Reset scale
     this.currentAnswer = "";
     this.answerText.setText("_");
+    this.answerText.setColor("#ffff00"); // Reset to yellow for new problem
     this.answerSubmitted = false; // Reset flag for new problem
     this.processingAnswer = false; // Reset processing flag for new problem
 
@@ -712,6 +713,36 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Play "passing through" animation for correct answer
+   * Creates a blue number that grows rapidly towards the player and fades out
+   * @param {string|number} answer - The correct answer to display
+   */
+  playCorrectAnswerAnimation(answer) {
+    // Create temporary blue text at answer position (below timer bar)
+    const answerAnimation = this.add.text(400, 400, String(answer), {
+      fontFamily: '"Press Start 2P"',
+      fontSize: "24px",
+      color: "#00aaff", // Blue color
+      stroke: "#000000",
+      strokeThickness: 4,
+    })
+    .setOrigin(0.5)
+    .setDepth(1000); // Ensure it's on top
+
+    // Animate: scale up rapidly while fading out
+    this.tweens.add({
+      targets: answerAnimation,
+      scale: 3.5, // Grow to 3.5x size
+      alpha: 0, // Fade to transparent
+      duration: 350, // 350ms for quick, non-distracting effect
+      ease: "Quad.easeOut", // Fast start, smooth end
+      onComplete: () => {
+        answerAnimation.destroy(); // Clean up after animation
+      }
+    });
+  }
+
+  /**
    * Handle correct answer
    * M3.6: Calculate boost, apply to physics, show feedback, next problem
    * M4: Record statistics
@@ -729,24 +760,28 @@ export default class GameScene extends Phaser.Scene {
       boostStrength
     );
 
-    // 2. Apply boost to physics
+    // 2. Play "passing through" animation with the correct answer
+    const correctAnswer = this.mathProblem.currentProblem.answer;
+    this.playCorrectAnswerAnimation(correctAnswer);
+
+    // 3. Apply boost to physics
     this.vehiclePhysics.applyBoost(boostStrength);
     console.log(`[${performance.now().toFixed(2)}ms] Boost APPLIED to vehicle`);
     this.triggerBoostExhaust(boostStrength);
 
-    // 3. Stop timer
+    // 4. Stop timer
     this.mathProblem.timerActive = false;
 
-    // 4. M4: Record correct answer in statistics
+    // 5. M4: Record correct answer in statistics
     this.stats.recordCorrectAnswer();
 
-    // 5. M7: Play boost sound (replaces correct answer chime)
+    // 6. M7: Play boost sound (replaces correct answer chime)
     this.audioManager.playBoostSound(boostStrength);
 
-    // 6. M7: Show visual effect (green flash and particles)
+    // 7. M7: Show visual effect (green flash and particles)
     this.particleEffects.createCorrectFlash(400, 300);
 
-    // 7. Show feedback with animation
+    // 8. Show feedback with animation
     this.feedbackText.setText(`Correct! +${boostStrength.toFixed(2)} boost`);
     this.feedbackText.setColor("#00ff00");
     this.feedbackText.setScale(0.8);
@@ -757,7 +792,7 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Back.easeOut'
     });
 
-    // 8. Clear answer
+    // 9. Clear answer
     this.currentAnswer = "";
     this.answerText.setText("");
 
@@ -765,7 +800,7 @@ export default class GameScene extends Phaser.Scene {
       `[${performance.now().toFixed(2)}ms] handleCorrectAnswer() COMPLETE`
     );
 
-    // 9. Schedule next problem after delay
+    // 10. Schedule next problem after delay
     this.time.delayedCall(TIMING.CORRECT_ANSWER_DELAY, () => {
       this.startNewProblem();
     });
@@ -790,9 +825,10 @@ export default class GameScene extends Phaser.Scene {
     // NO sound, NO screen shake, NO visual feedback
     // Just silently ignore and allow player to keep trying
 
-    // Clear answer input so user can retry
+    // Clear answer input and show in red to indicate wrong answer
     this.currentAnswer = "";
     this.answerText.setText("_");
+    this.answerText.setColor("#ff0000"); // Red color for wrong answer
 
     // Reset processing flag so user can try again
     this.processingAnswer = false;
