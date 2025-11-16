@@ -1,16 +1,16 @@
-import Phaser from 'phaser';
-import { COLORS } from '../config/colors.js';
-import { TRACK, CAR, PHYSICS, TIMING } from '../config/constants.js';
-import { AUDIO } from '../config/audioConfig.js';
-import Track from '../systems/Track.js';
-import VehiclePhysics from '../systems/VehiclePhysics.js';
-import MathProblem from '../systems/MathProblem.js';
-import StatisticsTracker from '../systems/StatisticsTracker.js';
-import FrenchSpeechRecognition from '../systems/FrenchSpeechRecognition.js';
-import AudioManager from '../systems/AudioManager.js';
-import ParticleEffects from '../systems/ParticleEffects.js';
-import SoundGenerator from '../systems/SoundGenerator.js';
-import ScreenShake from '../effects/ScreenShake.js';
+import Phaser from "phaser";
+import { COLORS } from "../config/colors.js";
+import { TRACK, CAR, PHYSICS, TIMING } from "../config/constants.js";
+import { AUDIO } from "../config/audioConfig.js";
+import Track from "../systems/Track.js";
+import VehiclePhysics from "../systems/VehiclePhysics.js";
+import MathProblem from "../systems/MathProblem.js";
+import StatisticsTracker from "../systems/StatisticsTracker.js";
+import FrenchSpeechRecognition from "../systems/FrenchSpeechRecognition.js";
+import AudioManager from "../systems/AudioManager.js";
+import ParticleEffects from "../systems/ParticleEffects.js";
+import SoundGenerator from "../systems/SoundGenerator.js";
+import ScreenShake from "../effects/ScreenShake.js";
 
 /**
  * GameScene - Main gameplay scene
@@ -23,7 +23,7 @@ import ScreenShake from '../effects/ScreenShake.js';
  */
 export default class GameScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'GameScene' });
+    super({ key: "GameScene" });
   }
 
   /**
@@ -33,8 +33,13 @@ export default class GameScene extends Phaser.Scene {
    */
   init(data) {
     this.selectedTables = data.selectedTables || [2, 3, 4, 5];
-    this.playerName = data.playerName || 'Pilote';
-    console.log('GameScene initialized with tables:', this.selectedTables, 'Player:', this.playerName);
+    this.playerName = data.playerName || "Pilote";
+    console.log(
+      "GameScene initialized with tables:",
+      this.selectedTables,
+      "Player:",
+      this.playerName
+    );
   }
 
   /**
@@ -43,27 +48,39 @@ export default class GameScene extends Phaser.Scene {
    * Also preload car sprite
    */
   preload() {
-    console.log('Preloading assets...');
+    console.log("Preloading assets...");
 
     // Preload car sprite
-    this.load.image('car', 'assets/red_car_top.png');
+    this.load.image("car", "assets/red_car_top.png");
 
-    console.log('Generating sound effects...');
+    console.log("Generating sound effects...");
 
     // Create sound generator
     const generator = new SoundGenerator();
 
     // Generate all sound effects and load them as base64 data URIs
     const sounds = [
-      { key: AUDIO.SFX.ACCELERATE, buffer: generator.generateAccelerateSound() },
+      {
+        key: AUDIO.SFX.ACCELERATE,
+        buffer: generator.generateAccelerateSound(),
+      },
       { key: AUDIO.SFX.CORRECT, buffer: generator.generateCorrectSound() },
       { key: AUDIO.SFX.INCORRECT, buffer: generator.generateIncorrectSound() },
-      { key: AUDIO.SFX.LAP_COMPLETE, buffer: generator.generateLapCompleteSound() },
-      { key: AUDIO.SFX.PROBLEM_APPEAR, buffer: generator.generateProblemAppearSound() },
-      { key: AUDIO.SFX.COUNTDOWN_TICK, buffer: generator.generateCountdownTickSound() },
+      {
+        key: AUDIO.SFX.LAP_COMPLETE,
+        buffer: generator.generateLapCompleteSound(),
+      },
+      {
+        key: AUDIO.SFX.PROBLEM_APPEAR,
+        buffer: generator.generateProblemAppearSound(),
+      },
+      {
+        key: AUDIO.SFX.COUNTDOWN_TICK,
+        buffer: generator.generateCountdownTickSound(),
+      },
       { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
       { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() },
-      { key: AUDIO.SFX.GAME_START, buffer: generator.generateGameStartSound() }
+      { key: AUDIO.SFX.GAME_START, buffer: generator.generateGameStartSound() },
     ];
 
     // Convert buffers to base64 and load into Phaser
@@ -72,95 +89,100 @@ export default class GameScene extends Phaser.Scene {
       this.load.audio(key, dataUri);
     });
 
-    console.log('Sound effects generated and queued for loading');
+    console.log("Sound effects generated and queued for loading");
   }
 
   create() {
-    console.log('=== GameScene.create() started ===');
+    console.log("=== GameScene.create() started ===");
 
     // Add grass green background
     // Note: Background color is also set in gameConfig, but we add this
     // as a rectangle to ensure it's visible if canvas is resized
     this.add.rectangle(400, 400, 800, 800, COLORS.GRASS_GREEN);
-    console.log('Background added');
+    console.log("Background added");
 
     // M7: Initialize audio and effects systems
     this.audioManager = new AudioManager(this);
     this.particleEffects = new ParticleEffects(this);
-    console.log('Audio and particle effects initialized');
+    console.log("Audio and particle effects initialized");
 
     // Create track system
     this.track = new Track(this);
-    console.log('Track created');
+    console.log("Track created");
 
     // Render track graphics
     this.renderTrack();
-    console.log('Track rendered');
+    console.log("Track rendered");
 
     // Create and position car
     this.createCar();
-    console.log('Car created');
+    console.log("Car created");
 
     // M2: Create physics system (replaces M1 constant-speed movement)
     this.vehiclePhysics = new VehiclePhysics();
-    console.log('Physics created');
+    console.log("Physics created");
 
     // M4: Create statistics tracker
     this.stats = new StatisticsTracker();
     this.previousPosition = 0; // For lap detection
-    console.log('Statistics tracker created');
+    console.log("Statistics tracker created");
 
     // M3: Create math problem system
     // M4: Now uses selectedTables from init() instead of hardcoded values
     this.mathProblem = new MathProblem(this.selectedTables);
-    console.log('Math problem system created with tables:', this.selectedTables);
+    console.log(
+      "Math problem system created with tables:",
+      this.selectedTables
+    );
 
     // M3: Create problem UI overlay
     this.createProblemUI();
-    console.log('Problem UI created');
+    console.log("Problem UI created");
 
     // M4: Create HUD (lap counter, stats display)
     this.createHUD();
-    console.log('HUD created');
+    console.log("HUD created");
 
     // M3: Initialize answer input
-    this.currentAnswer = '';
+    this.currentAnswer = "";
     this.answerSubmitted = false; // Flag to prevent timeout race condition
     this.processingAnswer = false; // Flag to prevent multiple simultaneous submissions
     this.answerBuffer = []; // Buffer to store sequence of recognized answers
 
     // M3: Setup keyboard input for answers
     this.setupAnswerInput();
-    console.log('Answer input setup');
+    console.log("Answer input setup");
 
     // M2.4: Add speed indicator UI
-    this.speedText = this.add.text(20, 760, 'Speed: 0.00', {
+    this.speedText = this.add.text(20, 760, "Speed: 0.00", {
       fontFamily: '"Press Start 2P"',
-      fontSize: '14px',
-      color: '#ffff00',
-      stroke: '#000000',
-      strokeThickness: 3
+      fontSize: "14px",
+      color: "#ffff00",
+      stroke: "#000000",
+      strokeThickness: 3,
     });
-    console.log('Speed indicator created');
+    console.log("Speed indicator created");
 
     // M2.7: Debug mode (optional but recommended for physics tuning)
     this.debugMode = false;
 
     // Toggle debug mode with D key
-    this.input.keyboard.on('keydown-D', () => {
+    this.input.keyboard.on("keydown-D", () => {
       this.debugMode = !this.debugMode;
-      console.log('Debug mode:', this.debugMode ? 'ON' : 'OFF');
+      console.log("Debug mode:", this.debugMode ? "ON" : "OFF");
     });
 
     // Create debug text panel (bottom-left corner)
-    this.debugText = this.add.text(10, 650, '', {
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      color: '#00ff00',
-      backgroundColor: '#000000',
-      padding: { x: 8, y: 8 }
-    }).setDepth(1000); // Ensure it's on top of everything
-    console.log('Debug panel created');
+    this.debugText = this.add
+      .text(10, 650, "", {
+        fontFamily: "monospace",
+        fontSize: "12px",
+        color: "#00ff00",
+        backgroundColor: "#000000",
+        padding: { x: 8, y: 8 },
+      })
+      .setDepth(1000); // Ensure it's on top of everything
+    console.log("Debug panel created");
 
     // M6: Setup speech recognition
     this.speech = new FrenchSpeechRecognition();
@@ -179,10 +201,10 @@ export default class GameScene extends Phaser.Scene {
       };
 
       this.speech.onError = (error) => {
-        console.error('Speech error:', error);
+        console.error("Speech error:", error);
         if (this.micStatusText) {
-          this.micStatusText.setText('🎤 Erreur');
-          this.micStatusText.setColor('#ff0000');
+          this.micStatusText.setText("🎤 Erreur");
+          this.micStatusText.setColor("#ff0000");
         }
       };
 
@@ -190,49 +212,57 @@ export default class GameScene extends Phaser.Scene {
       this.speech.start();
 
       // Add microphone status indicator (positioned inside scoreboard)
-      this.micStatusText = this.add.text(400, 485, '🎤 Écoute...', {
-        fontFamily: '"Press Start 2P"',
-        fontSize: '12px',
-        color: '#00ff00',
-        stroke: '#000000',
-        strokeThickness: 2
-      }).setOrigin(0.5);
+      this.micStatusText = this.add
+        .text(400, 485, "🎤 Écoute...", {
+          fontFamily: '"Press Start 2P"',
+          fontSize: "12px",
+          color: "#00ff00",
+          stroke: "#000000",
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5);
 
       // Add speech feedback text (shows what's being heard)
-      this.speechFeedbackText = this.add.text(400, 480, '', {
-        fontFamily: '"Press Start 2P"',
-        fontSize: '10px',
-        color: '#aaaaaa',
-        stroke: '#000000',
-        strokeThickness: 2
-      }).setOrigin(0.5);
+      this.speechFeedbackText = this.add
+        .text(400, 480, "", {
+          fontFamily: '"Press Start 2P"',
+          fontSize: "10px",
+          color: "#aaaaaa",
+          stroke: "#000000",
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5);
 
-      console.log('Speech recognition started');
+      console.log("Speech recognition started");
     } else {
       // Show keyboard-only indicator
-      this.add.text(400, 450, 'Clavier uniquement', {
-        fontFamily: '"Press Start 2P"',
-        fontSize: '12px',
-        color: '#888888',
-        stroke: '#000000',
-        strokeThickness: 2
-      }).setOrigin(0.5);
+      this.add
+        .text(400, 450, "Clavier uniquement", {
+          fontFamily: '"Press Start 2P"',
+          fontSize: "12px",
+          color: "#888888",
+          stroke: "#000000",
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5);
 
-      console.log('Speech recognition not supported - keyboard only');
+      console.log("Speech recognition not supported - keyboard only");
     }
 
     // M3: Start first problem
     this.startNewProblem();
-    console.log('First problem started');
+    console.log("First problem started");
 
     // M4: Start race timer
     // Use 0 as the baseline - we'll calculate elapsed time using deltas
     this.raceStartTime = 0;
-    this.stats.startRace(0);  // Statistics tracker starts at 0
-    this.elapsedTime = 0;  // Track accumulated elapsed time
+    this.stats.startRace(0); // Statistics tracker starts at 0
+    this.elapsedTime = 0; // Track accumulated elapsed time
 
-    console.log('=== GameScene.create() completed ===');
-    console.log('GameScene created! Answer with voice or keyboard, D for debug');
+    console.log("=== GameScene.create() completed ===");
+    console.log(
+      "GameScene created! Answer with voice or keyboard, D for debug"
+    );
   }
 
   /**
@@ -243,20 +273,24 @@ export default class GameScene extends Phaser.Scene {
   handleSpeechNumber(numbers) {
     const timestamp = performance.now();
     console.log(`[${timestamp.toFixed(2)}ms] === Speech Input ===`);
-    console.log('Recognized numbers:', numbers);
-    console.log('Current problem:', this.mathProblem.currentProblem);
-    console.log('Expected answer:', this.mathProblem.currentProblem?.answer);
-    console.log('Processing flag:', this.processingAnswer);
+    console.log("Recognized numbers:", numbers);
+    console.log("Current problem:", this.mathProblem.currentProblem);
+    console.log("Expected answer:", this.mathProblem.currentProblem?.answer);
+    console.log("Processing flag:", this.processingAnswer);
 
     // Ignore if we're already processing an answer
     if (this.processingAnswer) {
-      console.log(`[${performance.now().toFixed(2)}ms] IGNORED: Already processing an answer`);
+      console.log(
+        `[${performance
+          .now()
+          .toFixed(2)}ms] IGNORED: Already processing an answer`
+      );
       return;
     }
 
     // Clear speech feedback
     if (this.speechFeedbackText) {
-      this.speechFeedbackText.setText('');
+      this.speechFeedbackText.setText("");
     }
 
     // Check if any of the recognized numbers is correct
@@ -266,21 +300,35 @@ export default class GameScene extends Phaser.Scene {
     for (const number of numbers) {
       if (number === expectedAnswer) {
         correctNumber = number;
-        console.log(`[${performance.now().toFixed(2)}ms] Found correct answer in sequence: ${number}`);
+        console.log(
+          `[${performance
+            .now()
+            .toFixed(2)}ms] Found correct answer in sequence: ${number}`
+        );
         break;
       }
     }
 
     // If no correct answer found, ignore this sequence
     if (correctNumber === null) {
-      console.log(`[${performance.now().toFixed(2)}ms] No correct answer in sequence [${numbers.join(', ')}] - ignoring`);
+      console.log(
+        `[${performance
+          .now()
+          .toFixed(2)}ms] No correct answer in sequence [${numbers.join(
+          ", "
+        )}] - ignoring`
+      );
       return;
     }
 
     // Set the correct answer and submit
     this.currentAnswer = String(correctNumber);
     this.answerText.setText(this.currentAnswer);
-    console.log(`[${performance.now().toFixed(2)}ms] Correct answer displayed: ${correctNumber}`);
+    console.log(
+      `[${performance
+        .now()
+        .toFixed(2)}ms] Correct answer displayed: ${correctNumber}`
+    );
 
     // Mark answer as submitted to prevent timeout race condition
     this.answerSubmitted = true;
@@ -303,48 +351,52 @@ export default class GameScene extends Phaser.Scene {
    */
   createHUD() {
     // Top-left: Lap counter and accuracy
-    this.lapText = this.add.text(20, 20, 'Lap: 1/3', {
+    this.lapText = this.add.text(20, 20, "Lap: 1/3", {
       fontFamily: '"Press Start 2P"',
-      fontSize: '16px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
+      fontSize: "16px",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 3,
     });
 
-    this.accuracyText = this.add.text(20, 50, 'Accuracy: 0%', {
+    this.accuracyText = this.add.text(20, 50, "Accuracy: 0%", {
       fontFamily: '"Press Start 2P"',
-      fontSize: '12px',
-      color: '#ffff00',
-      stroke: '#000000',
-      strokeThickness: 2
+      fontSize: "12px",
+      color: "#ffff00",
+      stroke: "#000000",
+      strokeThickness: 2,
     });
 
-    this.answersText = this.add.text(20, 75, 'Correct: 0 / 0', {
+    this.answersText = this.add.text(20, 75, "Correct: 0 / 0", {
       fontFamily: '"Press Start 2P"',
-      fontSize: '10px',
-      color: '#aaaaaa',
-      stroke: '#000000',
-      strokeThickness: 2
+      fontSize: "10px",
+      color: "#aaaaaa",
+      stroke: "#000000",
+      strokeThickness: 2,
     });
 
     // Top-right: Lap times
-    this.lapTimesText = this.add.text(780, 20, '', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '12px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 2,
-      align: 'right'
-    }).setOrigin(1, 0);
+    this.lapTimesText = this.add
+      .text(780, 20, "", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "12px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 2,
+        align: "right",
+      })
+      .setOrigin(1, 0);
 
-    this.totalTimeText = this.add.text(780, 75, 'Total: 0.000s', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '10px',
-      color: '#aaaaaa',
-      stroke: '#000000',
-      strokeThickness: 2,
-      align: 'right'
-    }).setOrigin(1, 0);
+    this.totalTimeText = this.add
+      .text(780, 75, "Total: 0.000s", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "10px",
+        color: "#aaaaaa",
+        stroke: "#000000",
+        strokeThickness: 2,
+        align: "right",
+      })
+      .setOrigin(1, 0);
 
     // Top-right corner: Restart button
     this.createRestartButton();
@@ -355,30 +407,32 @@ export default class GameScene extends Phaser.Scene {
    * Allows player to return to menu and start over
    */
   createRestartButton() {
-    const restartButton = this.add.text(760, 110, '[ ↻ ]', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '20px',
-      color: '#ff6666',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(1, 0);
+    const restartButton = this.add
+      .text(760, 110, "[ ↻ ]", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "20px",
+        color: "#ff6666",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(1, 0);
 
     restartButton.setInteractive({ useHandCursor: true });
 
     // Hover effect
-    restartButton.on('pointerover', () => {
+    restartButton.on("pointerover", () => {
       this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
-      restartButton.setColor('#ff0000');
+      restartButton.setColor("#ff0000");
       restartButton.setScale(1.1);
     });
 
-    restartButton.on('pointerout', () => {
-      restartButton.setColor('#ff6666');
+    restartButton.on("pointerout", () => {
+      restartButton.setColor("#ff6666");
       restartButton.setScale(1.0);
     });
 
     // Click handler - confirm before restarting
-    restartButton.on('pointerdown', () => {
+    restartButton.on("pointerdown", () => {
       this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
 
       // Animate button press
@@ -390,17 +444,19 @@ export default class GameScene extends Phaser.Scene {
         yoyo: true,
         onComplete: () => {
           // Confirm restart
-          const confirmed = confirm('Abandonner la course et retourner au menu?');
+          const confirmed = confirm(
+            "Abandonner la course et retourner au menu?"
+          );
           if (confirmed) {
             this.restartGame();
           }
-        }
+        },
       });
     });
 
     // Also allow ESC key to restart
-    this.input.keyboard.on('keydown-ESC', () => {
-      const confirmed = confirm('Abandonner la course et retourner au menu?');
+    this.input.keyboard.on("keydown-ESC", () => {
+      const confirmed = confirm("Abandonner la course et retourner au menu?");
       if (confirmed) {
         this.restartGame();
       }
@@ -412,7 +468,7 @@ export default class GameScene extends Phaser.Scene {
    * Stops speech recognition and transitions to MenuScene
    */
   restartGame() {
-    console.log('Restarting game - returning to menu');
+    console.log("Restarting game - returning to menu");
 
     // Stop speech recognition if active
     if (this.speech && this.speech.supported) {
@@ -420,7 +476,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Return to menu
-    this.scene.start('MenuScene');
+    this.scene.start("MenuScene");
   }
 
   /**
@@ -460,38 +516,45 @@ export default class GameScene extends Phaser.Scene {
     );
 
     // Problem display (centered, large text) - adjusted Y position
-    this.problemText = this.add.text(400, 300, '', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '32px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 6
-    }).setOrigin(0.5);
+    this.problemText = this.add
+      .text(400, 300, "", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "32px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5);
 
     // Timer bar background (gray rectangle) - adjusted Y position
     this.timerBarBg = this.add.rectangle(400, 370, 400, 20, 0x333333);
 
     // Timer bar fill (starts green, changes to yellow/red) - adjusted Y position
-    this.timerBarFill = this.add.rectangle(400, 370, 400, 20, COLORS.TIMER_GREEN)
+    this.timerBarFill = this.add
+      .rectangle(400, 370, 400, 20, COLORS.TIMER_GREEN)
       .setOrigin(0.5);
 
     // Answer display (shows what user is typing) - adjusted Y position
-    this.answerText = this.add.text(400, 410, '', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '24px',
-      color: '#ffff00',
-      stroke: '#000000',
-      strokeThickness: 4
-    }).setOrigin(0.5);
+    this.answerText = this.add
+      .text(400, 410, "", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "24px",
+        color: "#ffff00",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
 
     // Feedback text (correct/incorrect/timeout messages) - adjusted Y position
-    this.feedbackText = this.add.text(400, 450, '', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '16px',
-      color: '#00ff00',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    this.feedbackText = this.add
+      .text(400, 450, "", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "16px",
+        color: "#00ff00",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
   }
 
   /**
@@ -500,21 +563,21 @@ export default class GameScene extends Phaser.Scene {
    */
   setupAnswerInput() {
     // Numeric input (0-9)
-    this.input.keyboard.on('keydown', (event) => {
-      if (event.key >= '0' && event.key <= '9') {
+    this.input.keyboard.on("keydown", (event) => {
+      if (event.key >= "0" && event.key <= "9") {
         this.currentAnswer += event.key;
-        this.answerText.setText(this.currentAnswer || '_');
+        this.answerText.setText(this.currentAnswer || "_");
       }
     });
 
     // Backspace to delete digits
-    this.input.keyboard.on('keydown-BACKSPACE', () => {
+    this.input.keyboard.on("keydown-BACKSPACE", () => {
       this.currentAnswer = this.currentAnswer.slice(0, -1);
-      this.answerText.setText(this.currentAnswer || '_');
+      this.answerText.setText(this.currentAnswer || "_");
     });
 
     // Enter to submit answer
-    this.input.keyboard.on('keydown-ENTER', () => {
+    this.input.keyboard.on("keydown-ENTER", () => {
       this.submitAnswer();
     });
   }
@@ -540,7 +603,7 @@ export default class GameScene extends Phaser.Scene {
       alpha: 1,
       scale: 1,
       duration: 300,
-      ease: 'Back.easeOut'
+      ease: "Back.easeOut",
     });
 
     // M7: Play problem appear sound
@@ -553,10 +616,10 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // Clear feedback and answer
-    this.feedbackText.setText('');
+    this.feedbackText.setText("");
     this.feedbackText.setScale(1); // Reset scale
-    this.currentAnswer = '';
-    this.answerText.setText('_');
+    this.currentAnswer = "";
+    this.answerText.setText("_");
     this.answerSubmitted = false; // Reset flag for new problem
     this.processingAnswer = false; // Reset processing flag for new problem
 
@@ -574,14 +637,22 @@ export default class GameScene extends Phaser.Scene {
     console.log(`[${performance.now().toFixed(2)}ms] submitAnswer() called`);
 
     if (!this.currentAnswer) {
-      console.log('No answer to submit');
+      console.log("No answer to submit");
       this.processingAnswer = false;
       return;
     }
 
-    console.log(`[${performance.now().toFixed(2)}ms] Checking answer:`, this.currentAnswer, 'against expected:', this.mathProblem.currentProblem?.answer);
+    console.log(
+      `[${performance.now().toFixed(2)}ms] Checking answer:`,
+      this.currentAnswer,
+      "against expected:",
+      this.mathProblem.currentProblem?.answer
+    );
     const isCorrect = this.mathProblem.checkAnswer(this.currentAnswer);
-    console.log(`[${performance.now().toFixed(2)}ms] Answer is correct:`, isCorrect);
+    console.log(
+      `[${performance.now().toFixed(2)}ms] Answer is correct:`,
+      isCorrect
+    );
 
     if (isCorrect) {
       this.handleCorrectAnswer();
@@ -597,15 +668,21 @@ export default class GameScene extends Phaser.Scene {
    * M7: Add sound effects and visual effects
    */
   handleCorrectAnswer() {
-    console.log(`[${performance.now().toFixed(2)}ms] handleCorrectAnswer() START`);
+    console.log(
+      `[${performance.now().toFixed(2)}ms] handleCorrectAnswer() START`
+    );
 
     // 1. Calculate boost based on remaining timer
     const boostStrength = this.mathProblem.calculateBoost();
-    console.log(`[${performance.now().toFixed(2)}ms] Boost calculated:`, boostStrength);
+    console.log(
+      `[${performance.now().toFixed(2)}ms] Boost calculated:`,
+      boostStrength
+    );
 
     // 2. Apply boost to physics
     this.vehiclePhysics.applyBoost(boostStrength);
     console.log(`[${performance.now().toFixed(2)}ms] Boost APPLIED to vehicle`);
+    this.triggerBoostExhaust(boostStrength);
 
     // 3. Stop timer
     this.mathProblem.timerActive = false;
@@ -624,7 +701,7 @@ export default class GameScene extends Phaser.Scene {
     // 7. Show feedback with animation
     // DISABLED FOR TESTING
     this.feedbackText.setText(`Correct! +${boostStrength.toFixed(2)} boost`);
-    this.feedbackText.setColor('#00ff00');
+    this.feedbackText.setColor("#00ff00");
     // this.feedbackText.setScale(0.8);
     // this.tweens.add({
     //   targets: this.feedbackText,
@@ -634,10 +711,12 @@ export default class GameScene extends Phaser.Scene {
     // });
 
     // 8. Clear answer
-    this.currentAnswer = '';
-    this.answerText.setText('');
+    this.currentAnswer = "";
+    this.answerText.setText("");
 
-    console.log(`[${performance.now().toFixed(2)}ms] handleCorrectAnswer() COMPLETE`);
+    console.log(
+      `[${performance.now().toFixed(2)}ms] handleCorrectAnswer() COMPLETE`
+    );
 
     // 9. Schedule next problem after delay
     this.time.delayedCall(TIMING.CORRECT_ANSWER_DELAY, () => {
@@ -652,7 +731,11 @@ export default class GameScene extends Phaser.Scene {
    * M7: REMOVED - No longer shows feedback to avoid interrupting flow
    */
   handleIncorrectAnswer() {
-    console.log(`[${performance.now().toFixed(2)}ms] handleIncorrectAnswer() - silently ignoring`);
+    console.log(
+      `[${performance
+        .now()
+        .toFixed(2)}ms] handleIncorrectAnswer() - silently ignoring`
+    );
 
     // Record incorrect answer in statistics
     this.stats.recordIncorrectAnswer();
@@ -661,13 +744,17 @@ export default class GameScene extends Phaser.Scene {
     // Just silently ignore and allow player to keep trying
 
     // Clear answer input so user can retry
-    this.currentAnswer = '';
-    this.answerText.setText('_');
+    this.currentAnswer = "";
+    this.answerText.setText("_");
 
     // Reset processing flag so user can try again
     this.processingAnswer = false;
 
-    console.log(`[${performance.now().toFixed(2)}ms] Wrong answer ignored - Ready for next attempt`);
+    console.log(
+      `[${performance
+        .now()
+        .toFixed(2)}ms] Wrong answer ignored - Ready for next attempt`
+    );
 
     // Timer continues counting down
     // Player can retry immediately without interruption
@@ -685,12 +772,12 @@ export default class GameScene extends Phaser.Scene {
     this.audioManager.playSFX(AUDIO.SFX.INCORRECT, 0.7);
 
     // 3. Show timeout message
-    this.feedbackText.setText('Time up!');
-    this.feedbackText.setColor('#ff6600');
+    this.feedbackText.setText("Time up!");
+    this.feedbackText.setColor("#ff6600");
 
     // 4. Clear answer
-    this.currentAnswer = '';
-    this.answerText.setText('');
+    this.currentAnswer = "";
+    this.answerText.setText("");
 
     // 5. Schedule next problem (shorter delay than correct answer)
     this.time.delayedCall(TIMING.TIMEOUT_DELAY, () => {
@@ -720,7 +807,11 @@ export default class GameScene extends Phaser.Scene {
 
     // Check for timeout
     // Only timeout if timer expired AND no answer was submitted (prevents race condition)
-    if (this.mathProblem.timer <= 0 && this.mathProblem.timerActive === false && !this.answerSubmitted) {
+    if (
+      this.mathProblem.timer <= 0 &&
+      this.mathProblem.timerActive === false &&
+      !this.answerSubmitted
+    ) {
       // Only handle timeout once
       if (!this.timeoutHandled) {
         this.timeoutHandled = true;
@@ -729,6 +820,23 @@ export default class GameScene extends Phaser.Scene {
     } else {
       this.timeoutHandled = false;
     }
+  }
+
+  /**
+   * Activate boost exhaust particles for a duration based on boost strength
+   * @param {number} boostStrength
+   */
+  triggerBoostExhaust(boostStrength) {
+    if (!this.boostEmitter || boostStrength <= 0) {
+      return;
+    }
+
+    const duration = Phaser.Math.Linear(
+      250,
+      650,
+      Phaser.Math.Clamp(boostStrength, 0, 1)
+    );
+    this.boostEmitterTimer = Math.max(this.boostEmitterTimer, duration);
   }
 
   /**
@@ -759,16 +867,27 @@ export default class GameScene extends Phaser.Scene {
     graphics.lineStyle(3, 0xffffff, 0.6); // White dashed line, semi-transparent
 
     for (let i = 0; i < numSegments; i++) {
-      const startAngle = (i * segmentLength / circumference) * Math.PI * 2;
+      const startAngle = ((i * segmentLength) / circumference) * Math.PI * 2;
       const endAngle = startAngle + (dashLength / circumference) * Math.PI * 2;
 
       // Draw arc segment for dash
+      const startX =
+        centerX + middleRadius * Math.cos(startAngle - Math.PI / 2);
+      const startY =
+        centerY + middleRadius * Math.sin(startAngle - Math.PI / 2);
+
       graphics.beginPath();
-      graphics.arc(centerX, centerY, middleRadius, startAngle - Math.PI / 2, endAngle - Math.PI / 2);
+      graphics.arc(
+        centerX,
+        centerY,
+        middleRadius,
+        startAngle - Math.PI / 2,
+        endAngle - Math.PI / 2
+      );
       graphics.strokePath();
     }
 
-    console.log('Track rendered as circle with dashed lane divider');
+    console.log("Track rendered as circle with dashed lane divider");
 
     // Draw start/finish line (white bar perpendicular to track)
     // Position it at progress = 0 (top center)
@@ -789,13 +908,13 @@ export default class GameScene extends Phaser.Scene {
     const startFinishRect = this.add.rectangle(
       startPos.x,
       startPos.y,
-      5,  // Thinner width
+      5, // Thinner width
       TRACK.START_FINISH_HEIGHT,
       COLORS.TRACK_LINE_WHITE
     );
     startFinishRect.setRotation(perpAngle);
 
-    console.log('Track rendered');
+    console.log("Track rendered");
   }
 
   /**
@@ -805,7 +924,7 @@ export default class GameScene extends Phaser.Scene {
   createCar() {
     // Create sprite from preloaded image
     // The sprite should be oriented pointing upward in the source image
-    this.car = this.add.sprite(0, 0, 'car');
+    this.car = this.add.sprite(0, 0, "car");
 
     // Set origin to center for proper rotation
     this.car.setOrigin(0.5, 0.5);
@@ -824,7 +943,39 @@ export default class GameScene extends Phaser.Scene {
     // Add PI/2 because sprite points up but we want it to follow the track tangent
     this.car.setRotation(startPos.angle + Math.PI / 2);
 
-    console.log('Car sprite created at start position');
+    // Create boost particle emitter (initially stopped)
+    // This will follow the car and emit particles when boosting
+    this.boostEmitter = this.particleEffects.createSpeedBoost(
+      startPos.x,
+      startPos.y
+    );
+
+    // Track exhaust offset vector for re-use each frame
+    this.exhaustOffsetVec = new Phaser.Math.Vector2(0, 0);
+    this.boostEmitterTimer = 0;
+
+    // Set up dynamic angle calculation using a callback
+    // This is the Phaser 3 way to have properties that update each emission
+    this.boostEmitter.ops.angle.loadConfig({
+      angle: {
+        onEmit: () => {
+          // Car sprite rotation already has +90° baked in; adding another 90°
+          // effectively gives us the backwards (exhaust) direction.
+          const backwardsAngleRadians = this.car.rotation + Math.PI / 2;
+          const backwardsAngleDegrees = Phaser.Math.RadToDeg(
+            backwardsAngleRadians
+          );
+          return backwardsAngleDegrees + Phaser.Math.Between(-15, 15);
+        },
+      },
+    });
+
+    // Keep emitter hidden until a boost is triggered
+    this.boostEmitter.stop();
+    this.boostEmitter.setVisible(false);
+    this.boostEmitter.setDepth(1000);
+
+    console.log("Car sprite created at start position with boost emitter");
   }
 
   update(_time, delta) {
@@ -854,7 +1005,34 @@ export default class GameScene extends Phaser.Scene {
 
     // Add PI/2 to angle because car triangle points up in local coordinates
     // but the track tangent angle assumes pointing right
-    this.car.setRotation(position.angle + Math.PI / 2);
+    const trackAngle = position.angle;
+    const carRotation = trackAngle + Math.PI / 2;
+    this.car.setRotation(carRotation);
+
+    // Update boost emitter position to rear of car
+    // Calculate rear position: move backwards along car's rotation by half the car height
+    const rearOffset = this.car.displayHeight / 2 + 15;
+    this.exhaustOffsetVec.set(0, rearOffset).rotate(carRotation);
+    const rearX = position.x + this.exhaustOffsetVec.x;
+    const rearY = position.y + this.exhaustOffsetVec.y;
+    this.boostEmitter.setPosition(rearX, rearY);
+
+    // Angle is now handled by the callback set up in createCar()
+    // No need to update it here - it calculates dynamically on each particle emission
+
+    // TEST: Keep emitter always running for debugging
+    // (Will restore velocity-based control once we confirm particles are visible)
+
+    if (this.boostEmitterTimer > 0) {
+      this.boostEmitterTimer -= delta;
+      if (!this.boostEmitter.emitting) {
+        this.boostEmitter.start();
+        this.boostEmitter.setVisible(true);
+      }
+    } else if (this.boostEmitter.emitting) {
+      this.boostEmitter.stop();
+      this.boostEmitter.setVisible(false);
+    }
 
     // M2.4: Update speed indicator
     this.speedText.setText(`Speed: ${this.vehiclePhysics.velocity.toFixed(2)}`);
@@ -891,7 +1069,11 @@ export default class GameScene extends Phaser.Scene {
     // Use accumulated elapsed time (resets properly between games)
     const lapData = this.stats.completeLap(this.elapsedTime);
 
-    console.log(`Lap ${lapData.lapNumber} complete: ${this.stats.formatTime(lapData.lapTime)}`);
+    console.log(
+      `Lap ${lapData.lapNumber} complete: ${this.stats.formatTime(
+        lapData.lapTime
+      )}`
+    );
 
     // M7: Play lap complete sound
     this.audioManager.playSFX(AUDIO.SFX.LAP_COMPLETE);
@@ -912,7 +1094,7 @@ export default class GameScene extends Phaser.Scene {
    * M6: Stop speech recognition
    */
   endRace() {
-    console.log('Race complete! Transitioning to GameOver scene');
+    console.log("Race complete! Transitioning to GameOver scene");
 
     // M6: Stop speech recognition
     if (this.speech && this.speech.supported) {
@@ -921,10 +1103,10 @@ export default class GameScene extends Phaser.Scene {
 
     // Small delay before transition for dramatic effect
     this.time.delayedCall(500, () => {
-      this.scene.start('GameOverScene', {
+      this.scene.start("GameOverScene", {
         results: this.stats.getResults(),
         playerName: this.playerName,
-        selectedTables: this.selectedTables
+        selectedTables: this.selectedTables,
       });
     });
   }
@@ -941,7 +1123,9 @@ export default class GameScene extends Phaser.Scene {
     this.accuracyText.setText(`Accuracy: ${this.stats.getAccuracy()}%`);
 
     // Update answer counts
-    this.answersText.setText(`Correct: ${this.stats.correctAnswers} / ${this.stats.totalAnswers}`);
+    this.answersText.setText(
+      `Correct: ${this.stats.correctAnswers} / ${this.stats.totalAnswers}`
+    );
 
     // Update lap times (right side)
     const currentLapTime = this.stats.getCurrentLapTime(this.elapsedTime);
@@ -960,7 +1144,9 @@ export default class GameScene extends Phaser.Scene {
     this.lapTimesText.setText(timesText);
 
     // Update total time (use stats.totalTime if race complete, otherwise use current elapsed time)
-    const totalTime = this.stats.isRaceComplete ? this.stats.totalTime : this.elapsedTime;
+    const totalTime = this.stats.isRaceComplete
+      ? this.stats.totalTime
+      : this.elapsedTime;
     this.totalTimeText.setText(`Total: ${this.stats.formatTime(totalTime)}`);
   }
 
@@ -978,14 +1164,16 @@ export default class GameScene extends Phaser.Scene {
     const p = this.vehiclePhysics;
 
     const debugInfo = [
-      'DEBUG MODE (Press D to toggle)',
-      '─'.repeat(35),
+      "DEBUG MODE (Press D to toggle)",
+      "─".repeat(35),
       `Velocity:     ${p.velocity.toFixed(4)} / ${p.maxSpeed}`,
       `Acceleration: ${p.acceleration.toFixed(6)}`,
       `Position:     ${p.position.toFixed(4)}`,
       `Friction:     ${PHYSICS.FRICTION}`,
-      `Max Speed:    ${PHYSICS.MAX_SPEED} (${(1/PHYSICS.MAX_SPEED).toFixed(1)}s/lap)`
-    ].join('\n');
+      `Max Speed:    ${PHYSICS.MAX_SPEED} (${(1 / PHYSICS.MAX_SPEED).toFixed(
+        1
+      )}s/lap)`,
+    ].join("\n");
 
     this.debugText.setText(debugInfo);
   }

@@ -27,15 +27,32 @@ export default class ParticleEffects {
    *
    * @param {number} x - X position
    * @param {number} y - Y position
+   * @param {number} angleDegrees - Initial emission angle in degrees (optional)
    * @returns {Phaser.GameObjects.Particles.ParticleEmitter} The emitter
    */
-  createSpeedBoost(x, y) {
-    // Create a simple circular particle texture
-    const graphics = this.scene.add.graphics();
-    graphics.fillStyle(EFFECTS.PARTICLES.SPEED_BOOST.TINT, 1);
-    graphics.fillCircle(4, 4, 4);
-    graphics.generateTexture('particle_boost', 8, 8);
-    graphics.destroy();
+  createSpeedBoost(x, y, angleDegrees = 0) {
+    // Create particle texture only if it doesn't exist
+    if (!this.scene.textures.exists('particle_boost')) {
+      // Create a glowing circular particle texture with gradient
+      const graphics = this.scene.add.graphics();
+
+      // Outer glow (semi-transparent)
+      graphics.fillStyle(EFFECTS.PARTICLES.SPEED_BOOST.TINT, 0.3);
+      graphics.fillCircle(8, 8, 8);
+
+      // Middle ring (brighter)
+      graphics.fillStyle(EFFECTS.PARTICLES.SPEED_BOOST.TINT, 0.7);
+      graphics.fillCircle(8, 8, 6);
+
+      // Core (brightest)
+      graphics.fillStyle(0xffff00, 1); // Yellow core for more glow
+      graphics.fillCircle(8, 8, 4);
+
+      graphics.generateTexture('particle_boost', 16, 16);
+      graphics.destroy();
+
+      console.log('Boost particle texture created');
+    }
 
     // Create particle emitter
     const emitter = this.scene.add.particles(x, y, 'particle_boost', {
@@ -49,10 +66,16 @@ export default class ParticleEffects {
         start: EFFECTS.PARTICLES.SPEED_BOOST.ALPHA.start,
         end: EFFECTS.PARTICLES.SPEED_BOOST.ALPHA.end
       },
-      blendMode: 'ADD',
-      frequency: 50,
-      quantity: EFFECTS.PARTICLES.SPEED_BOOST.QUANTITY
+      blendMode: 'ADD', // Additive blending for glow effect
+      frequency: 30, // Emit more frequently (reduced from 50ms)
+      quantity: EFFECTS.PARTICLES.SPEED_BOOST.QUANTITY,
+      // Angle will be updated dynamically in GameScene
+      angle: { min: angleDegrees - 15, max: angleDegrees + 15 },
+      gravityY: 0, // No gravity
+      bounce: 0
     });
+
+    console.log('Boost particle emitter created at', x, y, 'with angle', angleDegrees);
 
     this.activeEffects.push(emitter);
     return emitter;

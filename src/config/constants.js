@@ -38,6 +38,6 @@ export const TRACK = {
 };
 
 export const CAR = {
-  WIDTH: 20, // Car width (sprite display size)
-  HEIGHT: 30, // Car height (sprite display size)
+  WIDTH: 25, // Car width (sprite display size)
+  HEIGHT: 36, // Car height (sprite display size)
 };
