@@ -3,6 +3,7 @@ import { COLORS } from "../config/colors.js";
 import { AUDIO, EFFECTS } from "../config/audioConfig.js";
 import AudioManager from "../systems/AudioManager.js";
 import SoundGenerator from "../systems/SoundGenerator.js";
+import { loadPlayerName, savePlayerName, loadInputMode, saveInputMode } from "../systems/StorageManager.js";
 
 /**
  * MenuScene - Welcome screen with configuration
@@ -29,22 +30,21 @@ export default class MenuScene extends Phaser.Scene {
    * M7: Generate sound effects for menu interactions
    */
   preload() {
-    console.log("MenuScene: Generating sound effects...");
-
-    // Create sound generator
-    const generator = new SoundGenerator();
-
-    // Generate menu sounds
-    const sounds = [
-      { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
-      { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() },
-    ];
-
-    // Convert buffers to base64 and load into Phaser
-    sounds.forEach(({ key, buffer }) => {
-      const dataUri = generator.bufferToBase64WAV(buffer);
-      this.load.audio(key, dataUri);
-    });
+    // Menu sounds are generated once by GameScene on first load.
+    // On subsequent visits (after a game), they're already in cache.
+    // Only generate if cache is empty (i.e., app just started and
+    // MenuScene is the first scene — which is the normal flow).
+    if (!this.cache.audio.exists(AUDIO.SFX.MENU_CLICK)) {
+      const generator = new SoundGenerator();
+      const sounds = [
+        { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
+        { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() },
+      ];
+      sounds.forEach(({ key, buffer }) => {
+        const dataUri = generator.bufferToBase64WAV(buffer);
+        this.load.audio(key, dataUri);
+      });
+    }
   }
 
   create() {
@@ -54,9 +54,7 @@ export default class MenuScene extends Phaser.Scene {
     // Unlock audio context on first user interaction (required by browsers)
     this.input.once('pointerdown', () => {
       if (this.sound.context) {
-        this.sound.context.resume().then(() => {
-          console.log('Audio context unlocked');
-        });
+        this.sound.context.resume();
       }
     });
 
@@ -85,7 +83,7 @@ export default class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Input mode selection toggle (voice/keyboard)
-    this.inputMode = this.loadInputMode();
+    this.inputMode = loadInputMode();
     this.createInputModeToggle();
 
     // Name input section
@@ -101,7 +99,7 @@ export default class MenuScene extends Phaser.Scene {
 
     // Name display (simulated input - Phaser doesn't have text input)
     // Load player name from localStorage or use default
-    this.playerName = this.loadPlayerName();
+    this.playerName = loadPlayerName();
     this.nameText = this.add
       .text(400, 240, this.playerName, {
         fontFamily: '"Press Start 2P"',
@@ -161,7 +159,6 @@ export default class MenuScene extends Phaser.Scene {
     // Setup keyboard input for name editing
     this.setupNameInput();
 
-    console.log("MenuScene created");
   }
 
   /**
@@ -574,7 +571,7 @@ export default class MenuScene extends Phaser.Scene {
    */
   setInputMode(mode) {
     this.inputMode = mode;
-    this.saveInputMode(mode);
+    saveInputMode(mode);
     this.updateInputModeVisuals();
   }
 
@@ -602,60 +599,6 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   /**
-   * Load input mode from localStorage
-   * @returns {string} - Saved input mode or default "voice"
-   */
-  loadInputMode() {
-    try {
-      const savedMode = localStorage.getItem("facteur_furieux_input_mode");
-      return savedMode === "keyboard" ? "keyboard" : "voice"; // Default to voice
-    } catch (error) {
-      console.error("Error loading input mode:", error);
-      return "voice";
-    }
-  }
-
-  /**
-   * Save input mode to localStorage
-   * @param {string} mode - Input mode to save ('voice' or 'keyboard')
-   */
-  saveInputMode(mode) {
-    try {
-      localStorage.setItem("facteur_furieux_input_mode", mode);
-      console.log("Input mode saved:", mode);
-    } catch (error) {
-      console.error("Error saving input mode:", error);
-    }
-  }
-
-  /**
-   * Load player name from localStorage
-   * @returns {string} - Saved player name or default "Pilote"
-   */
-  loadPlayerName() {
-    try {
-      const savedName = localStorage.getItem('facteur_furieux_player_name');
-      return savedName && savedName.trim().length > 0 ? savedName : 'Pilote';
-    } catch (error) {
-      console.error('Error loading player name:', error);
-      return 'Pilote';
-    }
-  }
-
-  /**
-   * Save player name to localStorage
-   * @param {string} name - Player name to save
-   */
-  savePlayerName(name) {
-    try {
-      localStorage.setItem('facteur_furieux_player_name', name);
-      console.log('Player name saved:', name);
-    } catch (error) {
-      console.error('Error saving player name:', error);
-    }
-  }
-
-  /**
    * Edit player name (simple prompt for MVP)
    * M5: Using browser prompt for simplicity
    * Could be enhanced with custom input UI later
@@ -667,7 +610,7 @@ export default class MenuScene extends Phaser.Scene {
       this.playerName = newName.trim();
       this.nameText.setText(this.playerName);
       // Save to localStorage so it persists
-      this.savePlayerName(this.playerName);
+      savePlayerName(this.playerName);
     }
   }
 
@@ -675,7 +618,6 @@ export default class MenuScene extends Phaser.Scene {
    * View the leaderboard
    */
   viewLeaderboard() {
-    console.log('Opening leaderboard');
     this.scene.start('LeaderboardScene');
   }
 
@@ -685,14 +627,8 @@ export default class MenuScene extends Phaser.Scene {
   startGame() {
     // Validation: at least one table selected
     if (this.selectedTables.size === 0) {
-      console.log("Cannot start: no tables selected");
       return;
     }
-
-    console.log("Starting game with:", {
-      playerName: this.playerName,
-      selectedTables: Array.from(this.selectedTables).sort((a, b) => a - b),
-    });
 
     // Transition to GameScene with configuration
     this.scene.start("GameScene", {

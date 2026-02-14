@@ -45,7 +45,6 @@ export default class AudioManager {
     // Load settings from localStorage
     this.loadSettings();
 
-    console.log("AudioManager initialized with volumes:", this.volumes);
   }
 
   /**
@@ -67,13 +66,10 @@ export default class AudioManager {
     // Calculate final volume (master × sfx × individual)
     const finalVolume = this.volumes.master * this.volumes.sfx * volume;
 
-    console.log(`Playing SFX: ${key} at volume ${finalVolume.toFixed(2)}`);
-
-    // Play the sound
-    const sound = this.scene.sound.add(key);
-    sound.play({ volume: finalVolume });
-
-    return sound;
+    // Use scene.sound.play() directly — unlike sound.add() + play(),
+    // this doesn't create a persistent sound object that leaks in the
+    // sound manager. Short fire-and-forget SFX don't need a reference.
+    this.scene.sound.play(key, { volume: finalVolume });
   }
 
   /**
@@ -112,7 +108,6 @@ export default class AudioManager {
       const elapsedMs = performance.now() - this.boostSoundStartTime;
       const elapsedSeconds = elapsedMs / 1000;
       this.boostSoundPosition = this.boostSoundPosition + elapsedSeconds;
-      console.log(`Calculated position: ${this.boostSoundPosition.toFixed(2)}s (elapsed: ${elapsedSeconds.toFixed(2)}s)`);
     }
 
     // Stop any currently playing boost sound
@@ -127,14 +122,6 @@ export default class AudioManager {
     // Calculate volume based on boost strength (stronger boost = louder)
     const boostVolume = 0.5 + boostStrength * 0.5; // Range: 0.5 to 1.0
     const finalVolume = this.volumes.master * this.volumes.sfx * boostVolume;
-
-    console.log(
-      `Playing boost sound from ${this.boostSoundPosition.toFixed(
-        2
-      )}s at volume ${finalVolume.toFixed(
-        2
-      )}, duration ${duration}ms (boost: ${boostStrength.toFixed(2)})`
-    );
 
     // Play the boost sound starting from saved position
     this.currentBoostSound = this.scene.sound.add(AUDIO.SFX.BOOST);
@@ -152,7 +139,6 @@ export default class AudioManager {
       this.boostSoundPosition >= this.currentBoostSound.duration - 0.1 // Small buffer
     ) {
       // Loop back to start if we've played through the whole sound
-      console.log("Boost sound reached end, looping back to start");
       this.boostSoundPosition = 0;
     }
 
@@ -188,11 +174,6 @@ export default class AudioManager {
 
     // Quick fade out and stop the boost sound if playing
     if (this.currentBoostSound && this.currentBoostSound.isPlaying) {
-      console.log(
-        "Quick fade out boost sound" +
-          (preservePosition ? " (preserving position)" : "")
-      );
-
       // Quick fade (150ms)
       this.boostFadeTween = this.scene.tweens.add({
         targets: this.currentBoostSound,
@@ -201,6 +182,7 @@ export default class AudioManager {
         onComplete: () => {
           if (this.currentBoostSound) {
             this.currentBoostSound.stop();
+            this.currentBoostSound.destroy();
             this.currentBoostSound = null;
           }
           this.boostFadeTween = null;
@@ -219,7 +201,6 @@ export default class AudioManager {
       // Reset position after 5 seconds of no boost sounds
       // This indicates the streak has ended
       this.boostSoundResetTimer = this.scene.time.delayedCall(5000, () => {
-        console.log("Resetting boost sound position (streak ended)");
         this.boostSoundPosition = 0;
         this.boostSoundStartTime = 0;
         this.boostSoundResetTimer = null;
@@ -259,8 +240,6 @@ export default class AudioManager {
       volume: finalVolume,
     });
 
-    console.log(`Playing music: ${key} (volume: ${finalVolume.toFixed(2)})`);
-
     return this.currentMusic;
   }
 
@@ -271,7 +250,6 @@ export default class AudioManager {
     if (this.currentMusic && this.currentMusic.isPlaying) {
       this.currentMusic.stop();
       this.currentMusic = null;
-      console.log("Music stopped");
     }
   }
 
@@ -281,7 +259,6 @@ export default class AudioManager {
   pauseMusic() {
     if (this.currentMusic && this.currentMusic.isPlaying) {
       this.currentMusic.pause();
-      console.log("Music paused");
     }
   }
 
@@ -291,7 +268,6 @@ export default class AudioManager {
   resumeMusic() {
     if (this.currentMusic && this.currentMusic.isPaused) {
       this.currentMusic.resume();
-      console.log("Music resumed");
     }
   }
 
@@ -304,7 +280,6 @@ export default class AudioManager {
     this.volumes.master = Math.max(0, Math.min(1, volume));
     this.updateAllVolumes();
     this.saveSettings();
-    console.log(`Master volume: ${this.volumes.master.toFixed(2)}`);
   }
 
   /**
@@ -315,7 +290,6 @@ export default class AudioManager {
   setSFXVolume(volume) {
     this.volumes.sfx = Math.max(0, Math.min(1, volume));
     this.saveSettings();
-    console.log(`SFX volume: ${this.volumes.sfx.toFixed(2)}`);
   }
 
   /**
@@ -327,7 +301,6 @@ export default class AudioManager {
     this.volumes.music = Math.max(0, Math.min(1, volume));
     this.updateAllVolumes();
     this.saveSettings();
-    console.log(`Music volume: ${this.volumes.music.toFixed(2)}`);
   }
 
   /**
@@ -341,11 +314,9 @@ export default class AudioManager {
     if (this.muted) {
       // Pause all audio
       this.scene.sound.pauseAll();
-      console.log("Audio muted");
     } else {
       // Resume all audio
       this.scene.sound.resumeAll();
-      console.log("Audio unmuted");
     }
 
     this.saveSettings();
@@ -420,7 +391,6 @@ export default class AudioManager {
       if (musicVolume !== null) this.volumes.music = parseFloat(musicVolume);
       if (muted !== null) this.muted = muted === "true";
 
-      console.log("Loaded audio settings from localStorage");
     } catch (error) {
       console.warn("Failed to load audio settings:", error);
     }
@@ -463,6 +433,5 @@ export default class AudioManager {
       duration: duration,
     });
 
-    console.log(`Crossfading to: ${newKey}`);
   }
 }

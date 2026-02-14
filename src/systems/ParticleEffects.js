@@ -17,8 +17,6 @@ export default class ParticleEffects {
 
     // Track active effects for cleanup
     this.activeEffects = [];
-
-    console.log('ParticleEffects initialized');
   }
 
   /**
@@ -50,8 +48,6 @@ export default class ParticleEffects {
 
       graphics.generateTexture('particle_boost', 16, 16);
       graphics.destroy();
-
-      console.log('Boost particle texture created');
     }
 
     // Create particle emitter
@@ -74,8 +70,6 @@ export default class ParticleEffects {
       gravityY: 0, // No gravity
       bounce: 0
     });
-
-    console.log('Boost particle emitter created at', x, y, 'with angle', angleDegrees);
 
     this.activeEffects.push(emitter);
     return emitter;
@@ -198,6 +192,5 @@ export default class ParticleEffects {
       }
     });
     this.activeEffects = [];
-    console.log('All particle effects destroyed');
   }
 }

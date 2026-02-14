@@ -41,10 +41,6 @@ export default class Track {
     // Calculate total track length in pixels using Phaser's built-in method
     // For a circle: circumference = 2 * PI * radius
     this.length = this.path.getLength();
-
-    console.log(
-      `Track created: ${this.length.toFixed(0)} pixels long (circular)`
-    );
   }
 
   /**

@@ -133,7 +133,6 @@ export default class LeaderboardManager {
   clearScores() {
     try {
       localStorage.removeItem(this.storageKey);
-      console.log('Leaderboard cleared');
     } catch (error) {
       console.error('Error clearing leaderboard:', error);
     }

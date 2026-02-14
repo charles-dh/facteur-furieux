@@ -27,8 +27,6 @@ export default class ScreenShake {
 
     // Use Phaser's built-in camera shake
     scene.cameras.main.shake(duration, intensity / 1000); // Phaser uses 0-1 scale, we use pixels
-
-    console.log(`Screen shake: intensity=${intensity}px, duration=${duration}ms`);
   }
 
   /**

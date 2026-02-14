@@ -32,7 +32,6 @@ export default class MathProblem {
     // Track used problems to avoid duplicates
     this.usedProblems = new Set();
 
-    console.log(`MathProblem initialized with tables:`, selectedTables);
   }
 
   /**
@@ -71,7 +70,6 @@ export default class MathProblem {
 
       // Safety check: if we've used all combinations, reset the set
       if (attempts >= maxAttempts) {
-        console.log('Reset used problems - all combinations exhausted');
         this.usedProblems.clear();
         break;
       }
@@ -81,7 +79,6 @@ export default class MathProblem {
     this.usedProblems.add(problem.key);
 
     this.currentProblem = problem;
-    console.log(`New problem: ${problem.a} × ${problem.b} = ${problem.answer}`);
 
     return problem;
   }
