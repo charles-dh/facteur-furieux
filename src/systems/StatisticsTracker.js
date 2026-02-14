@@ -1,3 +1,5 @@
+import { GAME } from '../config/constants.js';
+
 /**
  * StatisticsTracker System
  *
@@ -25,8 +27,6 @@ export default class StatisticsTracker {
     this.raceStartTime = 0;        // When race began (timestamp)
     this.totalTime = 0;            // Total race duration in milliseconds
     this.isRaceComplete = false;   // Whether all laps finished
-
-    console.log('StatisticsTracker initialized');
   }
 
   /**
@@ -36,7 +36,6 @@ export default class StatisticsTracker {
   startRace(timestamp) {
     this.raceStartTime = timestamp;
     this.lapStartTime = timestamp;
-    console.log('Race started at', timestamp);
   }
 
   /**
@@ -71,9 +70,7 @@ export default class StatisticsTracker {
     }
 
     const completedLap = this.currentLap;
-    const isFinalLap = this.currentLap >= 3;
-
-    console.log(`Lap ${completedLap} completed: ${this.formatTime(lapTime)}`);
+    const isFinalLap = this.currentLap >= GAME.LAPS_TO_COMPLETE;
 
     if (!isFinalLap) {
       // Prepare for next lap
@@ -83,7 +80,6 @@ export default class StatisticsTracker {
       // Race complete
       this.isRaceComplete = true;
       this.totalTime = timestamp - this.raceStartTime;
-      console.log(`Race complete! Total time: ${this.formatTime(this.totalTime)}`);
     }
 
     return {

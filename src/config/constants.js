@@ -12,9 +12,9 @@ export const PHYSICS = {
 export const TIMING = {
   PROBLEM_TIMER: 6000, // 6 seconds in milliseconds
   PROBLEM_READ_DELAY: 500, // 0.5 seconds delay before timer starts (gives time to read problem)
-  CORRECT_ANSWER_DELAY: 1, // 0.5 seconds (30 frames) after correct answer
-  TIMEOUT_DELAY: 10, // 0.16 seconds (10 frames) after timeout
-  FEEDBACK_DURATION: 20, // 1 second (60 frames) for visual feedback
+  CORRECT_ANSWER_DELAY: 1, // milliseconds — near-instant transition to next problem
+  TIMEOUT_DELAY: 10, // milliseconds — near-instant transition after timeout
+  FEEDBACK_DURATION: 1000, // milliseconds — duration for visual feedback
 };
 
 export const BOOST = {

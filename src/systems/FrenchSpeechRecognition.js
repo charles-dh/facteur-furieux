@@ -56,7 +56,6 @@ export default class FrenchSpeechRecognition {
     // Setup event handlers
     this.setupEventHandlers();
 
-    console.log('FrenchSpeechRecognition initialized');
   }
 
   /**
@@ -68,7 +67,6 @@ export default class FrenchSpeechRecognition {
 
       // Check if we're in cooldown period (ignore all input)
       if (timestamp < this.ignoreUntil) {
-        console.log(`[${timestamp.toFixed(2)}ms] SPEECH API: IGNORING input during cooldown (${(this.ignoreUntil - timestamp).toFixed(0)}ms remaining)`);
         return;
       }
 
@@ -77,29 +75,37 @@ export default class FrenchSpeechRecognition {
       const transcript = result[0].transcript.trim().toLowerCase();
 
       if (result.isFinal) {
-        console.log(`[${timestamp.toFixed(2)}ms] SPEECH API: Final result received: "${transcript}"`);
         // Final result - parse as number(s)
         const numbers = this.parseNumber(transcript);
 
         if (numbers.length > 0 && this.onNumberRecognized) {
           // Call callback with array of numbers
-          console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Calling onNumberRecognized([${numbers.join(', ')}]) [FINAL]`);
           this.lastRecognitionTime = timestamp;
           this.onNumberRecognized(numbers);
-        } else {
-          console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Could not parse numbers from "${transcript}"`);
         }
       } else {
         // Interim result - try to parse as number(s) for fast response
-        console.log(`[${timestamp.toFixed(2)}ms] SPEECH API: Interim result: "${transcript}"`);
-
-        // Try to parse interim result as number(s)
         const numbers = this.parseNumber(transcript);
 
         if (numbers.length > 0 && this.onNumberRecognized) {
-          // Accept interim result - call with array of numbers
-          console.log(`[${performance.now().toFixed(2)}ms] SPEECH API: Calling onNumberRecognized([${numbers.join(', ')}]) [INTERIM - FAST]`);
+          // Fix: Prevent duplicate interim results from triggering multiple recognitions
+          // Check if this is a duplicate within a short time window
+          const timeSinceLastRecognition = timestamp - this.lastRecognitionTime;
+
+          if (timeSinceLastRecognition < 500) {
+            // Same utterance window - check if it's the same number
+            if (numbers.length > 0 && numbers[0] === this.lastRecognizedNumber) {
+              // Show interim feedback but don't trigger recognition callback
+              if (this.onInterimResult) {
+                this.onInterimResult(transcript);
+              }
+              return;
+            }
+          }
+
+          // New number or enough time has passed - accept it
           this.lastRecognitionTime = timestamp;
+          this.lastRecognizedNumber = numbers[0];
           this.onNumberRecognized(numbers);
         }
 
@@ -148,7 +154,6 @@ export default class FrenchSpeechRecognition {
     try {
       this.recognition.start();
       this.isListening = true;
-      console.log('Speech recognition started');
       return true;
     } catch (error) {
       console.error('Failed to start speech recognition:', error);
@@ -164,7 +169,6 @@ export default class FrenchSpeechRecognition {
 
     this.isListening = false;
     this.recognition.stop();
-    console.log('Speech recognition stopped');
   }
 
   /**
@@ -181,7 +185,6 @@ export default class FrenchSpeechRecognition {
     // Keeping them allows us to catch delayed results from the previous problem
     // The 2-second timeout in the duplicate check handles legitimate repeated answers
     this.ignoreUntil = performance.now() + cooldownMs;
-    console.log(`Speech recognition cooldown set: ${cooldownMs}ms (keeping duplicate tracking)`);
   }
 
   /**
@@ -192,7 +195,6 @@ export default class FrenchSpeechRecognition {
    */
   setCooldown(durationMs) {
     this.ignoreUntil = performance.now() + durationMs;
-    console.log(`Speech cooldown set: ${durationMs}ms`);
   }
 
   /**
@@ -209,8 +211,6 @@ export default class FrenchSpeechRecognition {
    * @returns {number[]} Array of numeric values (empty if no valid numbers found)
    */
   parseNumber(text) {
-    console.log('Parsing French text:', text);
-
     // Remove common noise words
     text = text.replace(/^(euh|heu|alors|donc)\s+/gi, '').trim();
 
@@ -224,7 +224,6 @@ export default class FrenchSpeechRecognition {
     for (const token of numericTokens) {
       const numericValue = parseInt(token, 10);
       if (!isNaN(numericValue) && numericValue >= 2 && numericValue <= 150) {
-        console.log('Found numeric token:', numericValue);
         results.push(numericValue);
         foundNumericSequence = true;
       }
@@ -232,7 +231,6 @@ export default class FrenchSpeechRecognition {
 
     // If we found numeric sequences, return them
     if (foundNumericSequence) {
-      console.log('Parsed numeric sequence:', results);
       return results;
     }
 
@@ -289,16 +287,12 @@ export default class FrenchSpeechRecognition {
 
     // Try exact match first
     if (numbers.hasOwnProperty(text)) {
-      const result = numbers[text];
-      console.log('Exact match found:', text, '→', result);
-      return result;
+      return numbers[text];
     }
 
     // Handle compound numbers by splitting and adding
     let result = 0;
     const parts = text.split(/[\s\-]+/);
-
-    console.log('Split into parts:', parts);
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
@@ -308,20 +302,14 @@ export default class FrenchSpeechRecognition {
       if (numbers.hasOwnProperty(part)) {
         const value = numbers[part];
         result += value;
-      } else {
-        console.log('Unknown part:', part);
       }
     }
 
-    console.log('Compound number result:', result);
-
     // Validate result is in expected range (2-150 for multiplication results)
     if (result >= 2 && result <= 150) {
-      console.log('Valid number parsed:', result);
       return result;
     }
 
-    console.log('Invalid result or out of range:', result);
     return null;
   }
 }

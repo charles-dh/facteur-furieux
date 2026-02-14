@@ -31,21 +31,19 @@ export default class AudioManager {
     // Currently playing music
     this.currentMusic = null;
 
-    // Currently playing boost sound
+    // Boost sound state
+    // The boost sound plays while the car is boosting and fades out when the
+    // boost ends. For answer streaks, the sound continues seamlessly — each
+    // new correct answer extends the boost rather than restarting the sound.
     this.currentBoostSound = null;
     this.boostFadeTween = null;
-    this.boostDurationTimer = null;
 
-    // Track position in boost sound for consecutive answers
-    // This allows the sound to continue from where it left off during streaks
-    this.boostSoundPosition = 0; // in seconds
-    this.boostSoundStartTime = 0; // timestamp when sound started playing
-    this.boostSoundResetTimer = null;
+    // Track crossfade tweens for cleanup
+    this.crossfadeTweens = [];
 
     // Load settings from localStorage
     this.loadSettings();
 
-    console.log("AudioManager initialized with volumes:", this.volumes);
   }
 
   /**
@@ -67,13 +65,10 @@ export default class AudioManager {
     // Calculate final volume (master × sfx × individual)
     const finalVolume = this.volumes.master * this.volumes.sfx * volume;
 
-    console.log(`Playing SFX: ${key} at volume ${finalVolume.toFixed(2)}`);
-
-    // Play the sound
-    const sound = this.scene.sound.add(key);
-    sound.play({ volume: finalVolume });
-
-    return sound;
+    // Use scene.sound.play() directly — unlike sound.add() + play(),
+    // this doesn't create a persistent sound object that leaks in the
+    // sound manager. Short fire-and-forget SFX don't need a reference.
+    this.scene.sound.play(key, { volume: finalVolume });
   }
 
   /**
@@ -89,34 +84,34 @@ export default class AudioManager {
   }
 
   /**
-   * Play boost sound synchronized with boost effect
-   * For consecutive answers, continues from where the previous boost stopped
-   * Creates a satisfying continuous sound during answer streaks
+   * Start or continue the boost sound.
+   *
+   * Design: The boost sound is driven by the game loop's boostEmitterTimer,
+   * NOT by its own internal timers. GameScene calls startBoostSound() when
+   * the boost begins and stopBoostSound() when the emitter timer runs out.
+   *
+   * For streaks, if the sound is already playing we just bump the volume —
+   * no restart, no seek tracking, no parallel timers. Simple and reliable.
    *
    * @param {number} boostStrength - Boost strength (0-1) affects volume
-   * @param {number} duration - Duration in milliseconds before trimming the sound
-   * @returns {Phaser.Sound.BaseSound|null} The sound instance or null if muted
    */
-  playBoostSound(boostStrength, duration) {
+  startBoostSound(boostStrength) {
     if (this.muted) return null;
 
-    // Cancel any pending reset timer (we're continuing the streak)
-    if (this.boostSoundResetTimer) {
-      this.boostSoundResetTimer.remove();
-      this.boostSoundResetTimer = null;
-    }
+    // Calculate volume based on boost strength (stronger boost = louder)
+    const boostVolume = 0.5 + boostStrength * 0.5; // Range: 0.5 to 1.0
+    const finalVolume = this.volumes.master * this.volumes.sfx * boostVolume;
 
-    // Calculate current position based on time elapsed since sound started
-    // Do this BEFORE stopping, even if sound is fading
-    if (this.boostSoundStartTime > 0) {
-      const elapsedMs = performance.now() - this.boostSoundStartTime;
-      const elapsedSeconds = elapsedMs / 1000;
-      this.boostSoundPosition = this.boostSoundPosition + elapsedSeconds;
-      console.log(`Calculated position: ${this.boostSoundPosition.toFixed(2)}s (elapsed: ${elapsedSeconds.toFixed(2)}s)`);
+    // If already playing, just update the volume (streak continuation)
+    if (this.currentBoostSound && this.currentBoostSound.isPlaying) {
+      // Cancel any pending fade — the boost got extended
+      if (this.boostFadeTween) {
+        this.boostFadeTween.stop();
+        this.boostFadeTween = null;
+      }
+      this.currentBoostSound.setVolume(finalVolume);
+      return this.currentBoostSound;
     }
-
-    // Stop any currently playing boost sound
-    this.stopBoostSound(true); // true = don't reset position
 
     // Check if sound exists in cache
     if (!this.scene.cache.audio.exists(AUDIO.SFX.BOOST)) {
@@ -124,106 +119,46 @@ export default class AudioManager {
       return null;
     }
 
-    // Calculate volume based on boost strength (stronger boost = louder)
-    const boostVolume = 0.5 + boostStrength * 0.5; // Range: 0.5 to 1.0
-    const finalVolume = this.volumes.master * this.volumes.sfx * boostVolume;
-
-    console.log(
-      `Playing boost sound from ${this.boostSoundPosition.toFixed(
-        2
-      )}s at volume ${finalVolume.toFixed(
-        2
-      )}, duration ${duration}ms (boost: ${boostStrength.toFixed(2)})`
-    );
-
-    // Play the boost sound starting from saved position
-    this.currentBoostSound = this.scene.sound.add(AUDIO.SFX.BOOST);
-    this.currentBoostSound.play({
-      volume: finalVolume,
-      seek: this.boostSoundPosition // Set seek in play config
+    // Start a new boost sound (loop so it plays for the full boost duration)
+    this.currentBoostSound = this.scene.sound.add(AUDIO.SFX.BOOST, {
+      loop: true,
     });
-
-    // Record when this sound started playing
-    this.boostSoundStartTime = performance.now();
-
-    // Check if we've reached the end of the sound
-    if (
-      this.currentBoostSound.duration &&
-      this.boostSoundPosition >= this.currentBoostSound.duration - 0.1 // Small buffer
-    ) {
-      // Loop back to start if we've played through the whole sound
-      console.log("Boost sound reached end, looping back to start");
-      this.boostSoundPosition = 0;
-    }
-
-    // Schedule automatic stop with quick fade after duration
-    // This trims the sound for shorter boosts
-    if (duration) {
-      this.boostDurationTimer = this.scene.time.delayedCall(duration, () => {
-        this.stopBoostSound(false); // false = allow reset after delay
-      });
-    }
+    this.currentBoostSound.play({ volume: finalVolume });
 
     return this.currentBoostSound;
   }
 
   /**
-   * Stop boost sound with quick fade out
-   * Called when boost effect ends
-   *
-   * @param {boolean} preservePosition - If true, don't schedule position reset
+   * Stop the boost sound with a quick fade out.
+   * Called by GameScene when the boostEmitterTimer reaches zero.
    */
-  stopBoostSound(preservePosition = false) {
-    // Cancel any existing duration timer
-    if (this.boostDurationTimer) {
-      this.boostDurationTimer.remove();
-      this.boostDurationTimer = null;
-    }
-
+  stopBoostSound() {
     // Cancel any existing fade tween
     if (this.boostFadeTween) {
       this.boostFadeTween.stop();
       this.boostFadeTween = null;
     }
 
-    // Quick fade out and stop the boost sound if playing
-    if (this.currentBoostSound && this.currentBoostSound.isPlaying) {
-      console.log(
-        "Quick fade out boost sound" +
-          (preservePosition ? " (preserving position)" : "")
-      );
+    if (!this.currentBoostSound) return;
 
-      // Quick fade (150ms)
+    // Capture local reference so callback doesn't touch a replaced sound
+    const soundToStop = this.currentBoostSound;
+    this.currentBoostSound = null;
+
+    if (soundToStop.isPlaying) {
+      // Fade out over 200ms for a smooth cut
       this.boostFadeTween = this.scene.tweens.add({
-        targets: this.currentBoostSound,
+        targets: soundToStop,
         volume: 0,
-        duration: 150, // Quick fade
+        duration: 200,
         onComplete: () => {
-          if (this.currentBoostSound) {
-            this.currentBoostSound.stop();
-            this.currentBoostSound = null;
-          }
+          soundToStop.stop();
+          soundToStop.destroy();
           this.boostFadeTween = null;
         },
       });
-    }
-
-    // Schedule position reset after a delay (if no new boost sound plays)
-    // This resets the position if the streak ends
-    if (!preservePosition) {
-      // Cancel any existing reset timer
-      if (this.boostSoundResetTimer) {
-        this.boostSoundResetTimer.remove();
-      }
-
-      // Reset position after 5 seconds of no boost sounds
-      // This indicates the streak has ended
-      this.boostSoundResetTimer = this.scene.time.delayedCall(5000, () => {
-        console.log("Resetting boost sound position (streak ended)");
-        this.boostSoundPosition = 0;
-        this.boostSoundStartTime = 0;
-        this.boostSoundResetTimer = null;
-      });
+    } else {
+      soundToStop.destroy();
     }
   }
 
@@ -259,8 +194,6 @@ export default class AudioManager {
       volume: finalVolume,
     });
 
-    console.log(`Playing music: ${key} (volume: ${finalVolume.toFixed(2)})`);
-
     return this.currentMusic;
   }
 
@@ -271,7 +204,6 @@ export default class AudioManager {
     if (this.currentMusic && this.currentMusic.isPlaying) {
       this.currentMusic.stop();
       this.currentMusic = null;
-      console.log("Music stopped");
     }
   }
 
@@ -281,7 +213,6 @@ export default class AudioManager {
   pauseMusic() {
     if (this.currentMusic && this.currentMusic.isPlaying) {
       this.currentMusic.pause();
-      console.log("Music paused");
     }
   }
 
@@ -291,7 +222,6 @@ export default class AudioManager {
   resumeMusic() {
     if (this.currentMusic && this.currentMusic.isPaused) {
       this.currentMusic.resume();
-      console.log("Music resumed");
     }
   }
 
@@ -304,7 +234,6 @@ export default class AudioManager {
     this.volumes.master = Math.max(0, Math.min(1, volume));
     this.updateAllVolumes();
     this.saveSettings();
-    console.log(`Master volume: ${this.volumes.master.toFixed(2)}`);
   }
 
   /**
@@ -315,7 +244,6 @@ export default class AudioManager {
   setSFXVolume(volume) {
     this.volumes.sfx = Math.max(0, Math.min(1, volume));
     this.saveSettings();
-    console.log(`SFX volume: ${this.volumes.sfx.toFixed(2)}`);
   }
 
   /**
@@ -327,7 +255,6 @@ export default class AudioManager {
     this.volumes.music = Math.max(0, Math.min(1, volume));
     this.updateAllVolumes();
     this.saveSettings();
-    console.log(`Music volume: ${this.volumes.music.toFixed(2)}`);
   }
 
   /**
@@ -341,11 +268,9 @@ export default class AudioManager {
     if (this.muted) {
       // Pause all audio
       this.scene.sound.pauseAll();
-      console.log("Audio muted");
     } else {
       // Resume all audio
       this.scene.sound.resumeAll();
-      console.log("Audio unmuted");
     }
 
     this.saveSettings();
@@ -420,7 +345,6 @@ export default class AudioManager {
       if (musicVolume !== null) this.volumes.music = parseFloat(musicVolume);
       if (muted !== null) this.muted = muted === "true";
 
-      console.log("Loaded audio settings from localStorage");
     } catch (error) {
       console.warn("Failed to load audio settings:", error);
     }
@@ -433,6 +357,15 @@ export default class AudioManager {
    * @param {number} duration - Fade duration in ms
    */
   crossfade(newKey, duration = AUDIO.FADE_DURATION) {
+    // Fix: Track and clean up crossfade tweens to prevent memory leaks
+    // Kill any existing crossfade tweens
+    if (this.crossfadeTweens) {
+      this.crossfadeTweens.forEach(tween => {
+        if (tween) tween.stop();
+      });
+    }
+    this.crossfadeTweens = [];
+
     if (!this.currentMusic || !this.currentMusic.isPlaying) {
       // No current music, just start new one
       this.playMusic(newKey);
@@ -442,14 +375,16 @@ export default class AudioManager {
     const oldMusic = this.currentMusic;
 
     // Fade out old music
-    this.scene.tweens.add({
+    const fadeOutTween = this.scene.tweens.add({
       targets: oldMusic,
       volume: 0,
       duration: duration,
       onComplete: () => {
         oldMusic.stop();
+        oldMusic.destroy();
       },
     });
+    this.crossfadeTweens.push(fadeOutTween);
 
     // Start new music at 0 volume
     const finalVolume = this.volumes.master * this.volumes.music;
@@ -457,12 +392,11 @@ export default class AudioManager {
     this.currentMusic.play({ loop: true, volume: 0 });
 
     // Fade in new music
-    this.scene.tweens.add({
+    const fadeInTween = this.scene.tweens.add({
       targets: this.currentMusic,
       volume: finalVolume,
       duration: duration,
     });
-
-    console.log(`Crossfading to: ${newKey}`);
+    this.crossfadeTweens.push(fadeInTween);
   }
 }

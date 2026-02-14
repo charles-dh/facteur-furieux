@@ -17,8 +17,6 @@ export default class ParticleEffects {
 
     // Track active effects for cleanup
     this.activeEffects = [];
-
-    console.log('ParticleEffects initialized');
   }
 
   /**
@@ -50,8 +48,6 @@ export default class ParticleEffects {
 
       graphics.generateTexture('particle_boost', 16, 16);
       graphics.destroy();
-
-      console.log('Boost particle texture created');
     }
 
     // Create particle emitter
@@ -75,8 +71,6 @@ export default class ParticleEffects {
       bounce: 0
     });
 
-    console.log('Boost particle emitter created at', x, y, 'with angle', angleDegrees);
-
     this.activeEffects.push(emitter);
     return emitter;
   }
@@ -89,12 +83,14 @@ export default class ParticleEffects {
    * @param {number} y - Center Y position
    */
   createCorrectFlash(x = 400, y = 300) {
-    // Create green particle texture
-    const graphics = this.scene.add.graphics();
-    graphics.fillStyle(EFFECTS.PARTICLES.CORRECT_FLASH.TINT, 1);
-    graphics.fillCircle(3, 3, 3);
-    graphics.generateTexture('particle_correct', 6, 6);
-    graphics.destroy();
+    // Create green particle texture only if it doesn't exist yet
+    if (!this.scene.textures.exists('particle_correct')) {
+      const graphics = this.scene.add.graphics();
+      graphics.fillStyle(EFFECTS.PARTICLES.CORRECT_FLASH.TINT, 1);
+      graphics.fillCircle(3, 3, 3);
+      graphics.generateTexture('particle_correct', 6, 6);
+      graphics.destroy();
+    }
 
     // One-shot particle burst
     const emitter = this.scene.add.particles(x, y, 'particle_correct', {
@@ -153,11 +149,14 @@ export default class ParticleEffects {
     const colors = EFFECTS.PARTICLES.CELEBRATION.COLORS;
 
     colors.forEach((color, index) => {
-      const graphics = this.scene.add.graphics();
-      graphics.fillStyle(color, 1);
-      graphics.fillRect(0, 0, 6, 6);
-      graphics.generateTexture(`particle_confetti_${index}`, 6, 6);
-      graphics.destroy();
+      // Create confetti texture only if it doesn't exist yet
+      if (!this.scene.textures.exists(`particle_confetti_${index}`)) {
+        const graphics = this.scene.add.graphics();
+        graphics.fillStyle(color, 1);
+        graphics.fillRect(0, 0, 6, 6);
+        graphics.generateTexture(`particle_confetti_${index}`, 6, 6);
+        graphics.destroy();
+      }
 
       // Create emitter for this color
       const emitter = this.scene.add.particles(x, y, `particle_confetti_${index}`, {
@@ -193,6 +192,5 @@ export default class ParticleEffects {
       }
     });
     this.activeEffects = [];
-    console.log('All particle effects destroyed');
   }
 }

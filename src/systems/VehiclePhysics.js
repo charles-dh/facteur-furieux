@@ -30,8 +30,6 @@ export default class VehiclePhysics {
     // Friction multiplier applied every frame
     // 0.98 means car retains 98% of velocity each frame (continuous slowdown)
     this.friction = PHYSICS.FRICTION;
-
-    console.log(`VehiclePhysics initialized: max speed = ${this.maxSpeed}, friction = ${this.friction}`);
   }
 
   /**

@@ -18,5 +18,3 @@ const game = new Phaser.Game(gameConfig);
 
 // Make game instance globally accessible for debugging (optional)
 window.game = game;
-
-console.log('Math Racer initialized!');

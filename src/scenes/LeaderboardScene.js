@@ -40,22 +40,19 @@ export default class LeaderboardScene extends Phaser.Scene {
    * M7: Generate sound effects for menu interactions
    */
   preload() {
-    console.log('LeaderboardScene: Generating sound effects...');
-
-    // Create sound generator
-    const generator = new SoundGenerator();
-
-    // Generate menu sounds
-    const sounds = [
-      { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
-      { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() }
-    ];
-
-    // Convert buffers to base64 and load into Phaser
-    sounds.forEach(({ key, buffer }) => {
-      const dataUri = generator.bufferToBase64WAV(buffer);
-      this.load.audio(key, dataUri);
-    });
+    // Menu sounds should already be in cache from MenuScene or GameScene.
+    // Guard with cache check just in case (e.g., direct navigation).
+    if (!this.cache.audio.exists(AUDIO.SFX.MENU_CLICK)) {
+      const generator = new SoundGenerator();
+      const sounds = [
+        { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
+        { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() },
+      ];
+      sounds.forEach(({ key, buffer }) => {
+        const dataUri = generator.bufferToBase64WAV(buffer);
+        this.load.audio(key, dataUri);
+      });
+    }
   }
 
   create() {
@@ -95,7 +92,6 @@ export default class LeaderboardScene extends Phaser.Scene {
       this.createClearButton();
     }
 
-    console.log('LeaderboardScene created');
   }
 
   /**

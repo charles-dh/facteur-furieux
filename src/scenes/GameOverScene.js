@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 import { COLORS } from '../config/colors.js';
 import { AUDIO, EFFECTS } from '../config/audioConfig.js';
 import AudioManager from '../systems/AudioManager.js';
-import SoundGenerator from '../systems/SoundGenerator.js';
 import LeaderboardManager from '../systems/LeaderboardManager.js';
+import { savePlayerName } from '../systems/StorageManager.js';
 
 /**
  * GameOverScene - Results and replay screen
@@ -33,7 +33,6 @@ export default class GameOverScene extends Phaser.Scene {
     this.playerName = data.playerName || 'Pilote';
     this.selectedTables = data.selectedTables || [2, 3, 4, 5];
 
-    console.log('GameOverScene initialized with results:', this.results);
   }
 
   /**
@@ -41,22 +40,7 @@ export default class GameOverScene extends Phaser.Scene {
    * M7: Generate sound effects for menu interactions
    */
   preload() {
-    console.log('GameOverScene: Generating sound effects...');
-
-    // Create sound generator
-    const generator = new SoundGenerator();
-
-    // Generate menu sounds
-    const sounds = [
-      { key: AUDIO.SFX.MENU_CLICK, buffer: generator.generateMenuClickSound() },
-      { key: AUDIO.SFX.MENU_HOVER, buffer: generator.generateMenuHoverSound() }
-    ];
-
-    // Convert buffers to base64 and load into Phaser
-    sounds.forEach(({ key, buffer }) => {
-      const dataUri = generator.bufferToBase64WAV(buffer);
-      this.load.audio(key, dataUri);
-    });
+    // Menu sounds are already in cache from GameScene — no need to regenerate.
   }
 
   create() {
@@ -82,7 +66,7 @@ export default class GameOverScene extends Phaser.Scene {
         if (newName && newName.trim().length > 0) {
           this.playerName = newName.trim();
           // Save to localStorage so it persists for next game
-          this.savePlayerName(this.playerName);
+          savePlayerName(this.playerName);
         }
       }
     }
@@ -96,13 +80,6 @@ export default class GameOverScene extends Phaser.Scene {
       correctAnswers: this.results.correctAnswers,
       totalAnswers: this.results.totalAnswers
     });
-
-    // Log if score made the leaderboard
-    if (this.savedRank !== null) {
-      console.log(`Score saved to leaderboard at rank ${this.savedRank}`);
-    } else {
-      console.log('Score did not make top 10');
-    }
 
     // Background (dark green to match game aesthetic)
     this.add.rectangle(400, 400, 800, 800, 0x004400);
@@ -292,20 +269,6 @@ export default class GameOverScene extends Phaser.Scene {
       this.restartGame();
     });
 
-    console.log('GameOverScene created');
-  }
-
-  /**
-   * Save player name to localStorage
-   * @param {string} name - Player name to save
-   */
-  savePlayerName(name) {
-    try {
-      localStorage.setItem('facteur_furieux_player_name', name);
-      console.log('Player name saved:', name);
-    } catch (error) {
-      console.error('Error saving player name:', error);
-    }
   }
 
   /**
@@ -313,8 +276,6 @@ export default class GameOverScene extends Phaser.Scene {
    * M5: Returns to MenuScene (allows changing configuration)
    */
   restartGame() {
-    console.log('Returning to menu');
-
     // M5: Return to MenuScene (player can choose different tables)
     this.scene.start('MenuScene');
   }
