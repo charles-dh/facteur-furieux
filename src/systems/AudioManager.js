@@ -1,4 +1,4 @@
-import { AUDIO } from '../config/audioConfig.js';
+import { AUDIO } from "../config/audioConfig.js";
 
 /**
  * Audio Manager System
@@ -23,7 +23,7 @@ export default class AudioManager {
     this.volumes = {
       master: AUDIO.DEFAULT_MASTER_VOLUME,
       sfx: AUDIO.DEFAULT_SFX_VOLUME,
-      music: AUDIO.DEFAULT_MUSIC_VOLUME
+      music: AUDIO.DEFAULT_MUSIC_VOLUME,
     };
 
     this.muted = false;
@@ -34,11 +34,18 @@ export default class AudioManager {
     // Currently playing boost sound
     this.currentBoostSound = null;
     this.boostFadeTween = null;
+    this.boostDurationTimer = null;
+
+    // Track position in boost sound for consecutive answers
+    // This allows the sound to continue from where it left off during streaks
+    this.boostSoundPosition = 0; // in seconds
+    this.boostSoundStartTime = 0; // timestamp when sound started playing
+    this.boostSoundResetTimer = null;
 
     // Load settings from localStorage
     this.loadSettings();
 
-    console.log('AudioManager initialized with volumes:', this.volumes);
+    console.log("AudioManager initialized with volumes:", this.volumes);
   }
 
   /**
@@ -83,16 +90,33 @@ export default class AudioManager {
 
   /**
    * Play boost sound synchronized with boost effect
-   * The sound will play until stopBoostSound() is called
+   * For consecutive answers, continues from where the previous boost stopped
+   * Creates a satisfying continuous sound during answer streaks
    *
    * @param {number} boostStrength - Boost strength (0-1) affects volume
+   * @param {number} duration - Duration in milliseconds before trimming the sound
    * @returns {Phaser.Sound.BaseSound|null} The sound instance or null if muted
    */
-  playBoostSound(boostStrength) {
+  playBoostSound(boostStrength, duration) {
     if (this.muted) return null;
 
+    // Cancel any pending reset timer (we're continuing the streak)
+    if (this.boostSoundResetTimer) {
+      this.boostSoundResetTimer.remove();
+      this.boostSoundResetTimer = null;
+    }
+
+    // Calculate current position based on time elapsed since sound started
+    // Do this BEFORE stopping, even if sound is fading
+    if (this.boostSoundStartTime > 0) {
+      const elapsedMs = performance.now() - this.boostSoundStartTime;
+      const elapsedSeconds = elapsedMs / 1000;
+      this.boostSoundPosition = this.boostSoundPosition + elapsedSeconds;
+      console.log(`Calculated position: ${this.boostSoundPosition.toFixed(2)}s (elapsed: ${elapsedSeconds.toFixed(2)}s)`);
+    }
+
     // Stop any currently playing boost sound
-    this.stopBoostSound();
+    this.stopBoostSound(true); // true = don't reset position
 
     // Check if sound exists in cache
     if (!this.scene.cache.audio.exists(AUDIO.SFX.BOOST)) {
@@ -101,44 +125,104 @@ export default class AudioManager {
     }
 
     // Calculate volume based on boost strength (stronger boost = louder)
-    const boostVolume = 0.5 + (boostStrength * 0.5); // Range: 0.5 to 1.0
+    const boostVolume = 0.5 + boostStrength * 0.5; // Range: 0.5 to 1.0
     const finalVolume = this.volumes.master * this.volumes.sfx * boostVolume;
 
-    console.log(`Playing boost sound at volume ${finalVolume.toFixed(2)} (boost: ${boostStrength.toFixed(2)})`);
+    console.log(
+      `Playing boost sound from ${this.boostSoundPosition.toFixed(
+        2
+      )}s at volume ${finalVolume.toFixed(
+        2
+      )}, duration ${duration}ms (boost: ${boostStrength.toFixed(2)})`
+    );
 
-    // Play the boost sound
+    // Play the boost sound starting from saved position
     this.currentBoostSound = this.scene.sound.add(AUDIO.SFX.BOOST);
-    this.currentBoostSound.play({ volume: finalVolume });
+    this.currentBoostSound.play({
+      volume: finalVolume,
+      seek: this.boostSoundPosition // Set seek in play config
+    });
+
+    // Record when this sound started playing
+    this.boostSoundStartTime = performance.now();
+
+    // Check if we've reached the end of the sound
+    if (
+      this.currentBoostSound.duration &&
+      this.boostSoundPosition >= this.currentBoostSound.duration - 0.1 // Small buffer
+    ) {
+      // Loop back to start if we've played through the whole sound
+      console.log("Boost sound reached end, looping back to start");
+      this.boostSoundPosition = 0;
+    }
+
+    // Schedule automatic stop with quick fade after duration
+    // This trims the sound for shorter boosts
+    if (duration) {
+      this.boostDurationTimer = this.scene.time.delayedCall(duration, () => {
+        this.stopBoostSound(false); // false = allow reset after delay
+      });
+    }
 
     return this.currentBoostSound;
   }
 
   /**
-   * Stop boost sound with fade out
+   * Stop boost sound with quick fade out
    * Called when boost effect ends
+   *
+   * @param {boolean} preservePosition - If true, don't schedule position reset
    */
-  stopBoostSound() {
+  stopBoostSound(preservePosition = false) {
+    // Cancel any existing duration timer
+    if (this.boostDurationTimer) {
+      this.boostDurationTimer.remove();
+      this.boostDurationTimer = null;
+    }
+
     // Cancel any existing fade tween
     if (this.boostFadeTween) {
       this.boostFadeTween.stop();
       this.boostFadeTween = null;
     }
 
-    // Fade out and stop the boost sound if playing
+    // Quick fade out and stop the boost sound if playing
     if (this.currentBoostSound && this.currentBoostSound.isPlaying) {
-      console.log('Fading out boost sound');
+      console.log(
+        "Quick fade out boost sound" +
+          (preservePosition ? " (preserving position)" : "")
+      );
 
+      // Quick fade (150ms)
       this.boostFadeTween = this.scene.tweens.add({
         targets: this.currentBoostSound,
         volume: 0,
-        duration: AUDIO.BOOST_FADE_OUT,
+        duration: 150, // Quick fade
         onComplete: () => {
           if (this.currentBoostSound) {
             this.currentBoostSound.stop();
             this.currentBoostSound = null;
           }
           this.boostFadeTween = null;
-        }
+        },
+      });
+    }
+
+    // Schedule position reset after a delay (if no new boost sound plays)
+    // This resets the position if the streak ends
+    if (!preservePosition) {
+      // Cancel any existing reset timer
+      if (this.boostSoundResetTimer) {
+        this.boostSoundResetTimer.remove();
+      }
+
+      // Reset position after 5 seconds of no boost sounds
+      // This indicates the streak has ended
+      this.boostSoundResetTimer = this.scene.time.delayedCall(5000, () => {
+        console.log("Resetting boost sound position (streak ended)");
+        this.boostSoundPosition = 0;
+        this.boostSoundStartTime = 0;
+        this.boostSoundResetTimer = null;
       });
     }
   }
@@ -172,7 +256,7 @@ export default class AudioManager {
     this.currentMusic = this.scene.sound.add(key);
     this.currentMusic.play({
       loop: loop,
-      volume: finalVolume
+      volume: finalVolume,
     });
 
     console.log(`Playing music: ${key} (volume: ${finalVolume.toFixed(2)})`);
@@ -187,7 +271,7 @@ export default class AudioManager {
     if (this.currentMusic && this.currentMusic.isPlaying) {
       this.currentMusic.stop();
       this.currentMusic = null;
-      console.log('Music stopped');
+      console.log("Music stopped");
     }
   }
 
@@ -197,7 +281,7 @@ export default class AudioManager {
   pauseMusic() {
     if (this.currentMusic && this.currentMusic.isPlaying) {
       this.currentMusic.pause();
-      console.log('Music paused');
+      console.log("Music paused");
     }
   }
 
@@ -207,7 +291,7 @@ export default class AudioManager {
   resumeMusic() {
     if (this.currentMusic && this.currentMusic.isPaused) {
       this.currentMusic.resume();
-      console.log('Music resumed');
+      console.log("Music resumed");
     }
   }
 
@@ -257,11 +341,11 @@ export default class AudioManager {
     if (this.muted) {
       // Pause all audio
       this.scene.sound.pauseAll();
-      console.log('Audio muted');
+      console.log("Audio muted");
     } else {
       // Resume all audio
       this.scene.sound.resumeAll();
-      console.log('Audio unmuted');
+      console.log("Audio unmuted");
     }
 
     this.saveSettings();
@@ -306,12 +390,15 @@ export default class AudioManager {
    */
   saveSettings() {
     try {
-      localStorage.setItem(AUDIO.STORAGE_KEYS.MASTER_VOLUME, this.volumes.master);
+      localStorage.setItem(
+        AUDIO.STORAGE_KEYS.MASTER_VOLUME,
+        this.volumes.master
+      );
       localStorage.setItem(AUDIO.STORAGE_KEYS.SFX_VOLUME, this.volumes.sfx);
       localStorage.setItem(AUDIO.STORAGE_KEYS.MUSIC_VOLUME, this.volumes.music);
       localStorage.setItem(AUDIO.STORAGE_KEYS.MUTED, this.muted);
     } catch (error) {
-      console.warn('Failed to save audio settings:', error);
+      console.warn("Failed to save audio settings:", error);
     }
   }
 
@@ -321,7 +408,9 @@ export default class AudioManager {
    */
   loadSettings() {
     try {
-      const masterVolume = localStorage.getItem(AUDIO.STORAGE_KEYS.MASTER_VOLUME);
+      const masterVolume = localStorage.getItem(
+        AUDIO.STORAGE_KEYS.MASTER_VOLUME
+      );
       const sfxVolume = localStorage.getItem(AUDIO.STORAGE_KEYS.SFX_VOLUME);
       const musicVolume = localStorage.getItem(AUDIO.STORAGE_KEYS.MUSIC_VOLUME);
       const muted = localStorage.getItem(AUDIO.STORAGE_KEYS.MUTED);
@@ -329,11 +418,11 @@ export default class AudioManager {
       if (masterVolume !== null) this.volumes.master = parseFloat(masterVolume);
       if (sfxVolume !== null) this.volumes.sfx = parseFloat(sfxVolume);
       if (musicVolume !== null) this.volumes.music = parseFloat(musicVolume);
-      if (muted !== null) this.muted = muted === 'true';
+      if (muted !== null) this.muted = muted === "true";
 
-      console.log('Loaded audio settings from localStorage');
+      console.log("Loaded audio settings from localStorage");
     } catch (error) {
-      console.warn('Failed to load audio settings:', error);
+      console.warn("Failed to load audio settings:", error);
     }
   }
 
@@ -351,7 +440,6 @@ export default class AudioManager {
     }
 
     const oldMusic = this.currentMusic;
-    const oldVolume = oldMusic.volume;
 
     // Fade out old music
     this.scene.tweens.add({
@@ -360,7 +448,7 @@ export default class AudioManager {
       duration: duration,
       onComplete: () => {
         oldMusic.stop();
-      }
+      },
     });
 
     // Start new music at 0 volume
@@ -372,7 +460,7 @@ export default class AudioManager {
     this.scene.tweens.add({
       targets: this.currentMusic,
       volume: finalVolume,
-      duration: duration
+      duration: duration,
     });
 
     console.log(`Crossfading to: ${newKey}`);

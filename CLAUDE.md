@@ -32,22 +32,6 @@ Follow these principles when writing or modifying code:
 
 - **Minimal test coverage (for now)** - Write tests for core logic and major functions, but don't aim for 100% coverage. Code will likely be refactored. Test enough to catch major breaks.
 
-## Implementation Workflow
-
-Development follows milestone-based approach outlined in [`docs/implementation-plan.md`](./docs/implementation-plan.md).
-When following an implementation plan, mark your progress in the document. Use ✅ to indicate completed tasks. If you encounter blockers or need clarification, leave comments in the document for review.
-
-Each milestone produces a runnable game state:
-
-1. Foundation & Track Rendering
-2. Vehicle Physics & Input-Driven Movement
-3. Math Problem System & Timing Mechanics
-4. Lap Tracking & Statistics
-5. Menu System & Configuration
-6. French Speech Recognition
-7. Audio & Visual Polish
-
-**Current milestone:** Check implementation plan for status.
 
 ## Git & Version Control
 

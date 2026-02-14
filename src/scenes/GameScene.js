@@ -57,7 +57,7 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("car", "assets/red_car_top.png");
 
     // Load boost sound from MP3 file
-    this.load.audio(AUDIO.SFX.BOOST, "assets/sports_car_vroom.mp3");
+    this.load.audio(AUDIO.SFX.BOOST, "assets/sports_car_vroooom.mp3");
     console.log("Loading boost sound from MP3...");
 
     console.log("Generating sound effects...");
@@ -221,7 +221,7 @@ export default class GameScene extends Phaser.Scene {
 
       // Try to play a test sound (boost sound)
       console.log("Attempting to play BOOST sound...");
-      const result = this.audioManager.playBoostSound(0.8);
+      const result = this.audioManager.playBoostSound(0.8, 500);
       console.log("Play result:", result);
     });
 
@@ -766,6 +766,14 @@ export default class GameScene extends Phaser.Scene {
     // 3. Apply boost to physics
     this.vehiclePhysics.applyBoost(boostStrength);
     console.log(`[${performance.now().toFixed(2)}ms] Boost APPLIED to vehicle`);
+
+    // Calculate boost duration (same calculation as in triggerBoostExhaust)
+    const boostDuration = Phaser.Math.Linear(
+      250,
+      650,
+      Phaser.Math.Clamp(boostStrength, 0, 1)
+    );
+
     this.triggerBoostExhaust(boostStrength);
 
     // 4. Stop timer
@@ -774,8 +782,8 @@ export default class GameScene extends Phaser.Scene {
     // 5. M4: Record correct answer in statistics
     this.stats.recordCorrectAnswer();
 
-    // 6. M7: Play boost sound (replaces correct answer chime)
-    this.audioManager.playBoostSound(boostStrength);
+    // 6. M7: Play boost sound synchronized with boost duration
+    this.audioManager.playBoostSound(boostStrength, boostDuration);
 
     // 7. M7: Show visual effect (green flash and particles)
     this.particleEffects.createCorrectFlash(400, 300);
