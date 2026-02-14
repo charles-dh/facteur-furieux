@@ -85,12 +85,27 @@ export default class FrenchSpeechRecognition {
         }
       } else {
         // Interim result - try to parse as number(s) for fast response
-        // Try to parse interim result as number(s)
         const numbers = this.parseNumber(transcript);
 
         if (numbers.length > 0 && this.onNumberRecognized) {
-          // Accept interim result - call with array of numbers
+          // Fix: Prevent duplicate interim results from triggering multiple recognitions
+          // Check if this is a duplicate within a short time window
+          const timeSinceLastRecognition = timestamp - this.lastRecognitionTime;
+
+          if (timeSinceLastRecognition < 500) {
+            // Same utterance window - check if it's the same number
+            if (numbers.length > 0 && numbers[0] === this.lastRecognizedNumber) {
+              // Show interim feedback but don't trigger recognition callback
+              if (this.onInterimResult) {
+                this.onInterimResult(transcript);
+              }
+              return;
+            }
+          }
+
+          // New number or enough time has passed - accept it
           this.lastRecognitionTime = timestamp;
+          this.lastRecognizedNumber = numbers[0];
           this.onNumberRecognized(numbers);
         }
 

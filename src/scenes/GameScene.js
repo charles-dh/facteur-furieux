@@ -129,6 +129,44 @@ export default class GameScene extends Phaser.Scene {
       })
       .setDepth(1000);
 
+    // Setup cleanup for scene shutdown
+    // Fix: Remove keyboard event listeners to prevent memory leaks
+    this.events.on('shutdown', () => {
+      // Clean up keyboard listeners
+      this.input.keyboard.off('keydown-D');
+      this.input.keyboard.off('keydown-ESC');
+      this.input.keyboard.off('keydown-BACKSPACE');
+      this.input.keyboard.off('keydown-ENTER');
+      this.input.keyboard.off('keydown');
+
+      // Clean up speech recognition
+      if (this.speech && this.speech.supported) {
+        this.speech.stop();
+        this.speech = null;
+      }
+
+      // Clean up particle effects
+      if (this.particleEffects) {
+        this.particleEffects.destroyAll();
+      }
+
+      // Clean up boost emitter
+      if (this.boostEmitter) {
+        this.boostEmitter.destroy();
+        this.boostEmitter = null;
+      }
+
+      // Clean up graphics objects
+      if (this.scoreboardBg) {
+        this.scoreboardBg.destroy();
+        this.scoreboardBg = null;
+      }
+      if (this.scoreboardBorder) {
+        this.scoreboardBorder.destroy();
+        this.scoreboardBorder = null;
+      }
+    });
+
     // Speech recognition (voice mode only)
     this.speech = new FrenchSpeechRecognition();
 
@@ -526,18 +564,11 @@ export default class GameScene extends Phaser.Scene {
     const boostStrength = this.mathProblem.calculateBoost();
     this.vehiclePhysics.applyBoost(boostStrength);
 
-    // Boost duration scales with strength (250ms–650ms)
-    const boostDuration = Phaser.Math.Linear(
-      250,
-      650,
-      Phaser.Math.Clamp(boostStrength, 0, 1)
-    );
-
     // Visual and audio effects
     const correctAnswer = this.mathProblem.currentProblem.answer;
     this.playCorrectAnswerAnimation(correctAnswer);
     this.triggerBoostExhaust(boostStrength);
-    this.audioManager.playBoostSound(boostStrength, boostDuration);
+    this.audioManager.startBoostSound(boostStrength);
     this.particleEffects.createCorrectFlash(400, 300);
 
     // Stop problem timer and record stats
