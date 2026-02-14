@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { COLORS } from "../config/colors.js";
-import { TRACK, CAR, PHYSICS, TIMING } from "../config/constants.js";
+import { TRACK, CAR, PHYSICS, TIMING, GAME } from "../config/constants.js";
 import { AUDIO } from "../config/audioConfig.js";
 import Track from "../systems/Track.js";
 import VehiclePhysics from "../systems/VehiclePhysics.js";
@@ -1210,7 +1210,7 @@ export default class GameScene extends Phaser.Scene {
    */
   updateHUD() {
     // Update lap counter
-    this.lapText.setText(`Lap: ${this.stats.currentLap}/3`);
+    this.lapText.setText(`Lap: ${this.stats.currentLap}/${GAME.LAPS_TO_COMPLETE}`);
 
     // Update accuracy
     this.accuracyText.setText(`Accuracy: ${this.stats.getAccuracy()}%`);

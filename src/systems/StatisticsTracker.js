@@ -1,3 +1,5 @@
+import { GAME } from '../config/constants.js';
+
 /**
  * StatisticsTracker System
  *
@@ -71,7 +73,7 @@ export default class StatisticsTracker {
     }
 
     const completedLap = this.currentLap;
-    const isFinalLap = this.currentLap >= 3;
+    const isFinalLap = this.currentLap >= GAME.LAPS_TO_COMPLETE;
 
     console.log(`Lap ${completedLap} completed: ${this.formatTime(lapTime)}`);
 
