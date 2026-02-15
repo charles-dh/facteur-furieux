@@ -184,10 +184,6 @@ export default class GameScene extends Phaser.Scene {
 
       this.speech.onError = (error) => {
         console.error("Speech error:", error);
-        if (this.micStatusText) {
-          this.micStatusText.setText("🎤 Erreur");
-          this.micStatusText.setColor("#ff0000");
-        }
       };
 
       this.speech.start();
@@ -206,11 +202,10 @@ export default class GameScene extends Phaser.Scene {
       console.warn("Speech recognition not supported in this browser");
     }
 
-    // Start first problem and race timer
-    this.startNewProblem();
-    this.raceStartTime = 0;
-    this.stats.startRace(0);
+    // Play countdown before starting the race
+    this.raceStarted = false;
     this.elapsedTime = 0;
+    this.playCountdownSequence();
   }
 
   /**
@@ -255,7 +250,7 @@ export default class GameScene extends Phaser.Scene {
    */
   createHUD() {
     // Top-left: Lap counter and accuracy
-    this.lapText = this.add.text(20, 20, `Lap: 1/${GAME.LAPS_TO_COMPLETE}`, {
+    this.lapText = this.add.text(20, 20, `Tour: 1/${GAME.LAPS_TO_COMPLETE}`, {
       fontFamily: '"Press Start 2P"',
       fontSize: "16px",
       color: "#ffffff",
@@ -263,15 +258,7 @@ export default class GameScene extends Phaser.Scene {
       strokeThickness: 3,
     });
 
-    this.accuracyText = this.add.text(20, 50, "Accuracy: 0%", {
-      fontFamily: '"Press Start 2P"',
-      fontSize: "12px",
-      color: "#ffff00",
-      stroke: "#000000",
-      strokeThickness: 2,
-    });
-
-    this.answersText = this.add.text(20, 75, "Correct: 0 / 0", {
+    this.answersText = this.add.text(20, 50, "Correct: 0 / 0", {
       fontFamily: '"Press Start 2P"',
       fontSize: "10px",
       color: "#aaaaaa",
@@ -291,16 +278,16 @@ export default class GameScene extends Phaser.Scene {
       })
       .setOrigin(1, 0);
 
+    // Total time — prominent, centered above the scoreboard
     this.totalTimeText = this.add
-      .text(780, 75, "Total: 0.000s", {
+      .text(400, 215, "0.000s", {
         fontFamily: '"Press Start 2P"',
-        fontSize: "10px",
-        color: "#aaaaaa",
+        fontSize: "20px",
+        color: "#ffffff",
         stroke: "#000000",
-        strokeThickness: 2,
-        align: "right",
+        strokeThickness: 4,
       })
-      .setOrigin(1, 0);
+      .setOrigin(0.5);
 
     this.createRestartButton();
   }
@@ -470,30 +457,166 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Play a traffic light countdown before the race starts.
+   * Three horizontal lights: Red→Yellow→Green with 3-2-1-GO sequence.
+   */
+  playCountdownSequence() {
+    const centerX = 400;
+    const centerY = 370;
+
+    // Three horizontal circles inside the scoreboard
+    const lightRadius = 30;
+    const lightSpacing = 80;
+    const redLight = this.add.circle(centerX - lightSpacing, centerY, lightRadius, 0x333333);
+    const yellowLight = this.add.circle(centerX, centerY, lightRadius, 0x333333);
+    const greenLight = this.add.circle(centerX + lightSpacing, centerY, lightRadius, 0x333333);
+
+    // Countdown number (large, above the lights)
+    const countdownText = this.add
+      .text(centerX, centerY - 70, "", {
+        fontFamily: '"Press Start 2P"',
+        fontSize: "48px",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5);
+
+    // Hide problem UI elements during countdown
+    this.problemText.setVisible(false);
+    this.timerBarBg.setVisible(false);
+    this.timerBarFill.setVisible(false);
+    this.answerText.setVisible(false);
+    this.totalTimeText.setVisible(false);
+
+    // Strict 800ms intervals for even rhythm
+    const interval = 800;
+
+    // Step 1: Red light
+    this.time.delayedCall(interval, () => {
+      redLight.setFillStyle(0xff0000);
+      countdownText.setText("3");
+      countdownText.setColor("#ff0000");
+      this.audioManager.playSFX(AUDIO.SFX.COUNTDOWN_TICK);
+    });
+
+    // Step 2: Yellow light
+    this.time.delayedCall(interval * 2, () => {
+      yellowLight.setFillStyle(0xffff00);
+      countdownText.setText("2");
+      countdownText.setColor("#ffff00");
+      this.audioManager.playSFX(AUDIO.SFX.COUNTDOWN_TICK);
+    });
+
+    // Step 3: Green light
+    this.time.delayedCall(interval * 3, () => {
+      greenLight.setFillStyle(0x00ff00);
+      countdownText.setText("1");
+      countdownText.setColor("#00ff00");
+      this.audioManager.playSFX(AUDIO.SFX.COUNTDOWN_TICK);
+    });
+
+    // Step 4: GO! (same interval)
+    this.time.delayedCall(interval * 4, () => {
+      countdownText.setText("GO!");
+      countdownText.setColor("#00ff00");
+      countdownText.setFontSize("40px");
+      this.audioManager.playSFX(AUDIO.SFX.GAME_START);
+
+      // Flash all lights green
+      redLight.setFillStyle(0x00ff00);
+      yellowLight.setFillStyle(0x00ff00);
+
+      // Animate GO! text out
+      this.tweens.add({
+        targets: countdownText,
+        scale: 1.5,
+        alpha: 0,
+        duration: 500,
+        ease: "Quad.easeOut",
+      });
+    });
+
+    // Step 5: Clean up and start race
+    this.time.delayedCall(interval * 4 + 500, () => {
+      redLight.destroy();
+      yellowLight.destroy();
+      greenLight.destroy();
+      countdownText.destroy();
+
+      // Show problem UI
+      this.problemText.setVisible(true);
+      this.timerBarBg.setVisible(true);
+      this.timerBarFill.setVisible(true);
+      this.answerText.setVisible(true);
+      this.totalTimeText.setVisible(true);
+
+      // Start the race with departure board animation for first problem
+      this.raceStarted = true;
+      this.raceStartTime = 0;
+      this.stats.startRace(0);
+      this.elapsedTime = 0;
+      this.startNewProblem(true);
+    });
+  }
+
+  /**
    * Generate a new problem and reset answer state
    */
-  startNewProblem() {
+  startNewProblem(useSlotAnimation = false) {
     this.mathProblem.generate();
+    // Pre-fill timer so the timeout detector doesn't fire before startTimer()
+    this.mathProblem.timer = this.mathProblem.timerMax;
 
-    // Update problem text with animation
     const p = this.mathProblem.currentProblem;
-    this.problemText.setText(`${p.a} × ${p.b} = ?`);
-    this.problemText.setAlpha(0);
-    this.problemText.setScale(0.8);
-    this.tweens.add({
-      targets: this.problemText,
-      alpha: 1,
-      scale: 1,
-      duration: 300,
-      ease: "Back.easeOut",
-    });
+    const finalText = `${p.a} × ${p.b} = ?`;
 
-    this.audioManager.playSFX(AUDIO.SFX.PROBLEM_APPEAR);
+    if (useSlotAnimation) {
+      // Airport departure board animation: cycle random problems before settling
+      const tables = this.selectedTables;
+      const cycleCount = 6;
+      const cycleInterval = 60; // ms between each random problem flash
 
-    // Start timer after a short delay so the player can read the problem
-    this.time.delayedCall(TIMING.PROBLEM_READ_DELAY, () => {
-      this.mathProblem.startTimer();
-    });
+      this.problemText.setAlpha(1);
+      this.problemText.setScale(1);
+
+      for (let i = 0; i < cycleCount; i++) {
+        this.time.delayedCall(i * cycleInterval, () => {
+          const randTable = tables[Math.floor(Math.random() * tables.length)];
+          const randNum = Math.floor(Math.random() * 9) + 2;
+          this.problemText.setText(`${randTable} × ${randNum} = ?`);
+        });
+      }
+
+      this.time.delayedCall(cycleCount * cycleInterval, () => {
+        this.problemText.setText(finalText);
+        this.audioManager.playSFX(AUDIO.SFX.PROBLEM_APPEAR);
+      });
+
+      this.time.delayedCall(cycleCount * cycleInterval + TIMING.PROBLEM_READ_DELAY, () => {
+        this.stats.recordProblemPresented();
+        this.mathProblem.startTimer();
+      });
+    } else {
+      // Normal: just show the problem with a quick scale+fade animation
+      this.problemText.setText(finalText);
+      this.problemText.setAlpha(0);
+      this.problemText.setScale(0.8);
+      this.tweens.add({
+        targets: this.problemText,
+        alpha: 1,
+        scale: 1,
+        duration: 300,
+        ease: "Back.easeOut",
+      });
+
+      this.audioManager.playSFX(AUDIO.SFX.PROBLEM_APPEAR);
+
+      this.time.delayedCall(TIMING.PROBLEM_READ_DELAY, () => {
+        this.stats.recordProblemPresented();
+        this.mathProblem.startTimer();
+      });
+    }
 
     // Reset answer state
     this.feedbackText.setText("");
@@ -576,7 +699,7 @@ export default class GameScene extends Phaser.Scene {
     this.stats.recordCorrectAnswer();
 
     // Show feedback with animation
-    this.feedbackText.setText(`Correct! +${boostStrength.toFixed(2)} boost`);
+    this.feedbackText.setText(`Bravo! +${boostStrength.toFixed(2)} boost`);
     this.feedbackText.setColor("#00ff00");
     this.feedbackText.setScale(0.8);
     this.tweens.add({
@@ -616,16 +739,26 @@ export default class GameScene extends Phaser.Scene {
    * Handle timer timeout: play sound, show message, next problem
    */
   handleTimeout() {
+    // Block any further answer submissions (prevents race with speech callbacks)
+    this.answerSubmitted = true;
+    this.processingAnswer = true;
+
+    // Stop any lingering boost sound from a last-second answer
+    this.audioManager.stopBoostSound();
+
     this.audioManager.playSFX(AUDIO.SFX.INCORRECT, 0.7);
 
-    this.feedbackText.setText("Time up!");
+    // Show the correct answer so the child can learn
+    const correctAnswer = this.mathProblem.currentProblem.answer;
+    this.feedbackText.setText(`Temps écoulé! → ${correctAnswer}`);
     this.feedbackText.setColor("#ff6600");
 
     this.currentAnswer = "";
     this.answerText.setText("");
 
-    this.time.delayedCall(TIMING.TIMEOUT_DELAY, () => {
-      this.startNewProblem();
+    // Brief pause to see the answer, then slot animation for next problem
+    this.time.delayedCall(800, () => {
+      this.startNewProblem(true);
     });
   }
 
@@ -728,8 +861,8 @@ export default class GameScene extends Phaser.Scene {
     this.car.setOrigin(0.5, 0.5);
     this.car.setDisplaySize(CAR.WIDTH, CAR.HEIGHT);
 
-    // Position car slightly behind the start/finish line
-    const startPos = this.track.getPositionAt(-0.005);
+    // Position car at the start/finish line
+    const startPos = this.track.getPositionAt(0);
     this.car.setPosition(startPos.x, startPos.y);
     // Add PI/2 because sprite points up but track tangent assumes pointing right
     this.car.setRotation(startPos.angle + Math.PI / 2);
@@ -762,6 +895,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(_time, delta) {
+    if (!this.raceStarted) return;
+
     this.elapsedTime += delta;
 
     // Physics
@@ -836,6 +971,8 @@ export default class GameScene extends Phaser.Scene {
    * End the race: stop speech, transition to GameOverScene
    */
   endRace() {
+    this.audioManager.stopBoostSound();
+
     if (this.speech && this.speech.supported) {
       this.speech.stop();
     }
@@ -853,28 +990,27 @@ export default class GameScene extends Phaser.Scene {
    * Update HUD: lap counter, accuracy, timing displays
    */
   updateHUD() {
-    this.lapText.setText(`Lap: ${this.stats.currentLap}/${GAME.LAPS_TO_COMPLETE}`);
-    this.accuracyText.setText(`Accuracy: ${this.stats.getAccuracy()}%`);
+    this.lapText.setText(`Tour: ${this.stats.currentLap}/${GAME.LAPS_TO_COMPLETE}`);
     this.answersText.setText(
-      `Correct: ${this.stats.correctAnswers} / ${this.stats.totalAnswers}`
+      `Correct: ${this.stats.correctAnswers} / ${this.stats.totalProblemsPresented}`
     );
 
     const currentLapTime = this.stats.getCurrentLapTime(this.elapsedTime);
     const lastLapTime = this.stats.getLastLapTime();
 
-    let timesText = `Current: ${this.stats.formatTime(currentLapTime)}\n`;
+    let timesText = `Actuel: ${this.stats.formatTime(currentLapTime)}\n`;
     if (lastLapTime !== null) {
-      timesText += `Last: ${this.stats.formatTime(lastLapTime)}\n`;
+      timesText += `Dernier: ${this.stats.formatTime(lastLapTime)}\n`;
     }
     if (this.stats.bestLapTime !== Infinity) {
-      timesText += `Best: ${this.stats.formatTime(this.stats.bestLapTime)}`;
+      timesText += `Meilleur: ${this.stats.formatTime(this.stats.bestLapTime)}`;
     }
     this.lapTimesText.setText(timesText);
 
     const totalTime = this.stats.isRaceComplete
       ? this.stats.totalTime
       : this.elapsedTime;
-    this.totalTimeText.setText(`Total: ${this.stats.formatTime(totalTime)}`);
+    this.totalTimeText.setText(this.stats.formatTime(totalTime));
   }
 
   /**

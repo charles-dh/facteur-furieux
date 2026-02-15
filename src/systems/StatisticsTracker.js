@@ -22,6 +22,7 @@ export default class StatisticsTracker {
     // Answer tracking
     this.correctAnswers = 0;       // Number of correct answers
     this.totalAnswers = 0;         // Total attempts (correct + incorrect)
+    this.totalProblemsPresented = 0; // Total problems shown to the player
 
     // Time tracking
     this.raceStartTime = 0;        // When race began (timestamp)
@@ -51,6 +52,14 @@ export default class StatisticsTracker {
    */
   recordIncorrectAnswer() {
     this.totalAnswers++;
+  }
+
+  /**
+   * Record that a new problem was presented to the player.
+   * Used as the accuracy denominator — counts every problem regardless of outcome.
+   */
+  recordProblemPresented() {
+    this.totalProblemsPresented++;
   }
 
   /**
@@ -116,8 +125,8 @@ export default class StatisticsTracker {
    * @returns {number} Accuracy as percentage (0-100)
    */
   getAccuracy() {
-    if (this.totalAnswers === 0) return 0;
-    return Math.round((this.correctAnswers / this.totalAnswers) * 100);
+    if (this.totalProblemsPresented === 0) return 0;
+    return Math.round((this.correctAnswers / this.totalProblemsPresented) * 100);
   }
 
   /**
@@ -157,7 +166,7 @@ export default class StatisticsTracker {
       lapTimes: this.lapTimes,
       lapTimesFormatted: this.lapTimes.map(t => this.formatTime(t)),
       correctAnswers: this.correctAnswers,
-      totalAnswers: this.totalAnswers,
+      totalAnswers: this.totalProblemsPresented,
       accuracy: this.getAccuracy(),
       currentLap: this.currentLap
     };

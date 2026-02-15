@@ -183,7 +183,7 @@ export default class SoundGenerator {
    * @returns {AudioBuffer} Generated sound buffer
    */
   generateCountdownTickSound() {
-    const duration = 0.15; // 150ms
+    const duration = 0.15; // 150ms — short and punchy
     const sampleRate = this.audioContext.sampleRate;
     const bufferSize = sampleRate * duration;
     const buffer = this.audioContext.createBuffer(1, bufferSize, sampleRate);
@@ -191,15 +191,25 @@ export default class SoundGenerator {
 
     for (let i = 0; i < bufferSize; i++) {
       const t = i / sampleRate;
+      const progress = t / duration;
 
-      // Medium pitched beep
-      const frequency = 600;
-      const value = Math.sin(2 * Math.PI * frequency * t);
+      // Higher pitch: 880Hz (A5) with slight upward sweep to 920Hz
+      const frequency = 880 + progress * 40;
 
-      // Envelope
-      const envelope = 1 - (t / duration);
+      // Sine + fifth harmonic for a bright, arcade "bip"
+      const sine = Math.sin(2 * Math.PI * frequency * t);
+      const fifth = Math.sin(2 * Math.PI * frequency * 1.5 * t) * 0.2;
+      const value = sine + fifth;
 
-      data[i] = value * envelope * 0.25;
+      // Snappy envelope: instant attack, quick decay
+      let envelope;
+      if (progress < 0.02) {
+        envelope = progress / 0.02;
+      } else {
+        envelope = 1.0 - (progress - 0.02) / 0.98;
+      }
+
+      data[i] = value * envelope * 0.4;
     }
 
     return buffer;
@@ -278,15 +288,27 @@ export default class SoundGenerator {
 
     for (let i = 0; i < bufferSize; i++) {
       const t = i / sampleRate;
+      const progress = t / duration;
 
-      // Powerful low-to-high sweep
-      const frequency = 150 + (t / duration) * 300;
-      const value = Math.sin(2 * Math.PI * frequency * t);
+      // Two-tone: E5 (660Hz) then A5 (880Hz) for a triumphant "GO!"
+      const frequency = progress < 0.3 ? 660 : 880;
 
-      // Envelope
-      const envelope = 1 - (t / duration);
+      // Sine + octave harmonic for richness
+      const sine = Math.sin(2 * Math.PI * frequency * t);
+      const octave = Math.sin(2 * Math.PI * frequency * 2 * t) * 0.3;
+      const value = sine + octave;
 
-      data[i] = value * envelope * 0.5;
+      // Punchy envelope with sustain
+      let envelope;
+      if (progress < 0.03) {
+        envelope = progress / 0.03;
+      } else if (progress < 0.6) {
+        envelope = 1.0;
+      } else {
+        envelope = 1.0 - (progress - 0.6) / 0.4;
+      }
+
+      data[i] = value * envelope * 0.4;
     }
 
     return buffer;
