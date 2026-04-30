@@ -6,6 +6,7 @@ import Track from "../systems/Track.js";
 import VehiclePhysics from "../systems/VehiclePhysics.js";
 import MathProblem from "../systems/MathProblem.js";
 import StatisticsTracker from "../systems/StatisticsTracker.js";
+import RaceState from "../systems/RaceState.js";
 import FrenchSpeechRecognition from "../systems/FrenchSpeechRecognition.js";
 import AudioManager from "../systems/AudioManager.js";
 import ParticleEffects from "../systems/ParticleEffects.js";
@@ -88,7 +89,11 @@ export default class GameScene extends Phaser.Scene {
 
     // Statistics and lap detection
     this.stats = new StatisticsTracker();
-    this.previousPosition = 0;
+
+    // Race state machine — single source of truth for phase + answer buffer.
+    // Replaces the previous scatter of booleans (raceStarted, answerSubmitted,
+    // processingAnswer, timeoutHandled, etc).
+    this.raceState = new RaceState();
 
     // Math problem system
     this.mathProblem = new MathProblem(this.selectedTables);
@@ -97,10 +102,6 @@ export default class GameScene extends Phaser.Scene {
     this.createProblemUI();
     this.createHUD();
 
-    // Answer input state
-    this.currentAnswer = "";
-    this.answerSubmitted = false;
-    this.processingAnswer = false;
     this.setupAnswerInput();
 
     // Speed indicator
@@ -203,8 +204,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Play countdown before starting the race
-    this.raceStarted = false;
-    this.elapsedTime = 0;
+    this.raceState.startCountdown();
     this.playCountdownSequence();
   }
 
@@ -213,9 +213,11 @@ export default class GameScene extends Phaser.Scene {
    * Checks if any recognized number matches the expected answer.
    */
   handleSpeechNumber(numbers) {
-    if (this.processingAnswer) return;
+    if (!this.raceState.isAcceptingAnswers()) return;
 
-    // Find the correct answer in the recognized sequence
+    // Find the correct answer in the recognized sequence. We only auto-submit
+    // when the player actually says the right number — wrong utterances are
+    // ignored (the player just keeps trying).
     const expectedAnswer = this.mathProblem.currentProblem?.answer;
     let correctNumber = null;
 
@@ -226,17 +228,12 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    // Ignore if no correct answer found
     if (correctNumber === null) return;
 
-    // Display and submit the correct answer
-    this.currentAnswer = String(correctNumber);
-    this.answerText.setText(this.currentAnswer);
+    this.raceState.setAnswer(String(correctNumber));
+    this.answerText.setText(this.raceState.currentAnswer);
 
-    this.answerSubmitted = true;
-    this.processingAnswer = true;
-
-    // Set speech cooldown to prevent lingering audio from triggering
+    // Lock further submissions and gag stale audio that may still arrive.
     if (this.speech && this.speech.supported) {
       this.speech.setCooldown(500);
     }
@@ -438,16 +435,16 @@ export default class GameScene extends Phaser.Scene {
     // Numeric input (0-9)
     this.input.keyboard.on("keydown", (event) => {
       if (event.key >= "0" && event.key <= "9") {
-        this.currentAnswer += event.key;
-        this.answerText.setText(this.currentAnswer || "_");
+        this.raceState.appendDigit(event.key);
+        this.answerText.setText(this.raceState.currentAnswer || "_");
         this.answerText.setColor("#ffff00");
       }
     });
 
     // Backspace to delete digits
     this.input.keyboard.on("keydown-BACKSPACE", () => {
-      this.currentAnswer = this.currentAnswer.slice(0, -1);
-      this.answerText.setText(this.currentAnswer || "_");
+      this.raceState.popDigit();
+      this.answerText.setText(this.raceState.currentAnswer || "_");
     });
 
     // Enter to submit
@@ -552,10 +549,8 @@ export default class GameScene extends Phaser.Scene {
       this.totalTimeText.setVisible(true);
 
       // Start the race with departure board animation for first problem
-      this.raceStarted = true;
-      this.raceStartTime = 0;
+      this.raceState.startRace();
       this.stats.startRace(0);
-      this.elapsedTime = 0;
       this.startNewProblem(true);
     });
   }
@@ -565,17 +560,30 @@ export default class GameScene extends Phaser.Scene {
    */
   startNewProblem(useSlotAnimation = false) {
     this.mathProblem.generate();
-    // Pre-fill timer so the timeout detector doesn't fire before startTimer()
+    // Pre-fill timer so the timeout detector doesn't fire before startTimer().
+    // The timer is "armed" but inactive — beginAnswering() flips both at once.
     this.mathProblem.timer = this.mathProblem.timerMax;
+
+    // RaceState transitions to awaitingProblem; answer buffer cleared.
+    this.raceState.showProblem();
 
     const p = this.mathProblem.currentProblem;
     const finalText = `${p.a} × ${p.b} = ?`;
 
+    // Schedules the read-delay → beginAnswering transition.
+    const armProblemTimer = (extraDelay = 0) => {
+      this.time.delayedCall(extraDelay + TIMING.PROBLEM_READ_DELAY, () => {
+        this.stats.recordProblemPresented();
+        this.mathProblem.startTimer();
+        this.raceState.beginAnswering();
+      });
+    };
+
     if (useSlotAnimation) {
-      // Airport departure board animation: cycle random problems before settling
+      // Airport departure board animation: cycle random problems before settling.
       const tables = this.selectedTables;
       const cycleCount = 6;
-      const cycleInterval = 60; // ms between each random problem flash
+      const cycleInterval = 60; // ms between flashes
 
       this.problemText.setAlpha(1);
       this.problemText.setScale(1);
@@ -593,12 +601,9 @@ export default class GameScene extends Phaser.Scene {
         this.audioManager.playSFX(AUDIO.SFX.PROBLEM_APPEAR);
       });
 
-      this.time.delayedCall(cycleCount * cycleInterval + TIMING.PROBLEM_READ_DELAY, () => {
-        this.stats.recordProblemPresented();
-        this.mathProblem.startTimer();
-      });
+      armProblemTimer(cycleCount * cycleInterval);
     } else {
-      // Normal: just show the problem with a quick scale+fade animation
+      // Normal: scale+fade in.
       this.problemText.setText(finalText);
       this.problemText.setAlpha(0);
       this.problemText.setScale(0.8);
@@ -611,22 +616,14 @@ export default class GameScene extends Phaser.Scene {
       });
 
       this.audioManager.playSFX(AUDIO.SFX.PROBLEM_APPEAR);
-
-      this.time.delayedCall(TIMING.PROBLEM_READ_DELAY, () => {
-        this.stats.recordProblemPresented();
-        this.mathProblem.startTimer();
-      });
+      armProblemTimer();
     }
 
-    // Reset answer state
+    // Reset visible answer + feedback (state was already cleared in showProblem).
     this.feedbackText.setText("");
     this.feedbackText.setScale(1);
-    this.currentAnswer = "";
     this.answerText.setText("_");
     this.answerText.setColor("#ffff00");
-    this.answerSubmitted = false;
-    this.processingAnswer = false;
-    this.timeoutHandled = false;
 
     // Reset speech recognition cooldown for new problem
     if (this.speech && this.speech.supported) {
@@ -638,13 +635,10 @@ export default class GameScene extends Phaser.Scene {
    * Submit the current answer and check correctness
    */
   submitAnswer() {
-    if (!this.currentAnswer) {
-      this.processingAnswer = false;
-      return;
-    }
+    const buffer = this.raceState.currentAnswer;
+    if (!buffer) return;
 
-    const isCorrect = this.mathProblem.checkAnswer(this.currentAnswer);
-    if (isCorrect) {
+    if (this.mathProblem.checkAnswer(buffer)) {
       this.handleCorrectAnswer();
     } else {
       this.handleIncorrectAnswer();
@@ -683,22 +677,24 @@ export default class GameScene extends Phaser.Scene {
    * Handle correct answer: boost car, play effects, schedule next problem
    */
   handleCorrectAnswer() {
-    // Calculate and apply boost
+    // Lock the phase so late speech callbacks for the same number don't
+    // re-trigger this handler. acceptCorrect() is a no-op if we're not in
+    // 'answering' (e.g. timeout fired on the same frame).
+    if (!this.raceState.acceptCorrect()) return;
+
     const boostStrength = this.mathProblem.calculateBoost();
     this.vehiclePhysics.applyBoost(boostStrength);
 
-    // Visual and audio effects
     const correctAnswer = this.mathProblem.currentProblem.answer;
     this.playCorrectAnswerAnimation(correctAnswer);
     this.triggerBoostExhaust(boostStrength);
     this.audioManager.startBoostSound(boostStrength);
     this.particleEffects.createCorrectFlash(400, 300);
 
-    // Stop problem timer and record stats
+    // Stop the problem timer and record stats.
     this.mathProblem.timerActive = false;
     this.stats.recordCorrectAnswer();
 
-    // Show feedback with animation
     this.feedbackText.setText(`Bravo! +${boostStrength.toFixed(2)} boost`);
     this.feedbackText.setColor("#00ff00");
     this.feedbackText.setScale(0.8);
@@ -709,11 +705,9 @@ export default class GameScene extends Phaser.Scene {
       ease: "Back.easeOut",
     });
 
-    // Clear answer display
-    this.currentAnswer = "";
+    this.raceState.clearAnswer();
     this.answerText.setText("");
 
-    // Schedule next problem
     this.time.delayedCall(TIMING.CORRECT_ANSWER_DELAY, () => {
       this.startNewProblem();
     });
@@ -726,37 +720,34 @@ export default class GameScene extends Phaser.Scene {
   handleIncorrectAnswer() {
     this.stats.recordIncorrectAnswer();
 
-    // Show red indicator briefly, then let player retry
-    this.currentAnswer = "";
+    // Stay in 'answering' phase. Just clear the buffer and flash red — the
+    // player can retry immediately and the timer keeps counting down.
+    this.raceState.clearAnswer();
     this.answerText.setText("_");
     this.answerText.setColor("#ff0000");
-
-    this.processingAnswer = false;
-    // Timer continues — player can retry immediately
   }
 
   /**
    * Handle timer timeout: play sound, show message, next problem
    */
   handleTimeout() {
-    // Block any further answer submissions (prevents race with speech callbacks)
-    this.answerSubmitted = true;
-    this.processingAnswer = true;
+    // Phase guard: markTimeout() returns false if we already transitioned
+    // out of 'answering' (e.g. an answer landed on the same frame the
+    // timer hit zero). Without it the player could see the correct-answer
+    // animation AND the timeout message at once.
+    if (!this.raceState.markTimeout()) return;
 
-    // Stop any lingering boost sound from a last-second answer
     this.audioManager.stopBoostSound();
-
     this.audioManager.playSFX(AUDIO.SFX.INCORRECT, 0.7);
 
-    // Show the correct answer so the child can learn
+    // Show the correct answer so the child can learn.
     const correctAnswer = this.mathProblem.currentProblem.answer;
     this.feedbackText.setText(`Temps écoulé! → ${correctAnswer}`);
     this.feedbackText.setColor("#ff6600");
 
-    this.currentAnswer = "";
+    this.raceState.clearAnswer();
     this.answerText.setText("");
 
-    // Brief pause to see the answer, then slot animation for next problem
     this.time.delayedCall(800, () => {
       this.startNewProblem(true);
     });
@@ -778,14 +769,14 @@ export default class GameScene extends Phaser.Scene {
       this.timerBarFill.setFillStyle(COLORS.TIMER_RED);
     }
 
-    // Detect timeout: timer expired, no answer submitted, not already handled
+    // Detect timeout: timer expired and we're still in 'answering'.
+    // RaceState.markTimeout() guards against double-firing internally, so
+    // this check just gates whether we even bother calling it.
     if (
       this.mathProblem.timer <= 0 &&
       !this.mathProblem.timerActive &&
-      !this.answerSubmitted &&
-      !this.timeoutHandled
+      this.raceState.isAcceptingAnswers()
     ) {
-      this.timeoutHandled = true;
       this.handleTimeout();
     }
   }
@@ -895,9 +886,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(_time, delta) {
-    if (!this.raceStarted) return;
+    if (!this.raceState.isRaceActive()) return;
 
-    this.elapsedTime += delta;
+    this.raceState.advanceTime(delta);
 
     // Physics
     this.vehiclePhysics.update(delta);
@@ -945,17 +936,17 @@ export default class GameScene extends Phaser.Scene {
    */
   detectLapCompletion() {
     const currentPos = this.vehiclePhysics.position;
-    if (this.previousPosition > 0.9 && currentPos < 0.1) {
+    if (this.raceState.previousPosition > 0.9 && currentPos < 0.1) {
       this.onLapComplete();
     }
-    this.previousPosition = currentPos;
+    this.raceState.previousPosition = currentPos;
   }
 
   /**
    * Handle lap completion: record time, play effects, check for race end
    */
   onLapComplete() {
-    const lapData = this.stats.completeLap(this.elapsedTime);
+    const lapData = this.stats.completeLap(this.raceState.elapsedTime);
 
     this.audioManager.playSFX(AUDIO.SFX.LAP_COMPLETE);
 
@@ -971,6 +962,7 @@ export default class GameScene extends Phaser.Scene {
    * End the race: stop speech, transition to GameOverScene
    */
   endRace() {
+    this.raceState.finish();
     this.audioManager.stopBoostSound();
 
     if (this.speech && this.speech.supported) {
@@ -995,7 +987,7 @@ export default class GameScene extends Phaser.Scene {
       `Correct: ${this.stats.correctAnswers} / ${this.stats.totalProblemsPresented}`
     );
 
-    const currentLapTime = this.stats.getCurrentLapTime(this.elapsedTime);
+    const currentLapTime = this.stats.getCurrentLapTime(this.raceState.elapsedTime);
     const lastLapTime = this.stats.getLastLapTime();
 
     let timesText = `Actuel: ${this.stats.formatTime(currentLapTime)}\n`;
@@ -1009,7 +1001,7 @@ export default class GameScene extends Phaser.Scene {
 
     const totalTime = this.stats.isRaceComplete
       ? this.stats.totalTime
-      : this.elapsedTime;
+      : this.raceState.elapsedTime;
     this.totalTimeText.setText(this.stats.formatTime(totalTime));
   }
 
