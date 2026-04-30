@@ -1,12 +1,13 @@
 import Phaser from "phaser";
 import { COLORS } from "../config/colors.js";
-import { TRACK, CAR, PHYSICS, TIMING, GAME } from "../config/constants.js";
+import { TRACK, CAR, PHYSICS, TIMING } from "../config/constants.js";
 import { AUDIO } from "../config/audioConfig.js";
 import Track from "../systems/Track.js";
 import VehiclePhysics from "../systems/VehiclePhysics.js";
 import MathProblem from "../systems/MathProblem.js";
 import StatisticsTracker from "../systems/StatisticsTracker.js";
 import RaceState from "../systems/RaceState.js";
+import RaceHUD from "./RaceHUD.js";
 import FrenchSpeechRecognition from "../systems/FrenchSpeechRecognition.js";
 import AudioManager from "../systems/AudioManager.js";
 import ParticleEffects from "../systems/ParticleEffects.js";
@@ -98,107 +99,57 @@ export default class GameScene extends Phaser.Scene {
     // Math problem system
     this.mathProblem = new MathProblem(this.selectedTables);
 
-    // UI layers
-    this.createProblemUI();
-    this.createHUD();
+    // HUD owns every Phaser display object that lives above the track.
+    this.hud = new RaceHUD(this);
+    this.hud.create();
+    this.hud.setOnRestart(() => this.restartGame());
+
+    // Forward HUD button events to audio. Decoupling means the HUD knows
+    // nothing about AudioManager.
+    this.events.on('hud:button-hover', () => this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER));
+    this.events.on('hud:button-click', () => this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK));
+
+    // ESC also aborts to menu.
+    this.input.keyboard.on('keydown-ESC', () => {
+      const confirmed = confirm('Abandonner la course et retourner au menu?');
+      if (confirmed) this.restartGame();
+    });
+
+    // Debug toggle.
+    this.input.keyboard.on('keydown-D', () => this.hud.toggleDebug());
 
     this.setupAnswerInput();
 
-    // Speed indicator
-    this.speedText = this.add.text(20, 760, "Speed: 0.00", {
-      fontFamily: '"Press Start 2P"',
-      fontSize: "14px",
-      color: "#ffff00",
-      stroke: "#000000",
-      strokeThickness: 3,
-    });
-
-    // Debug mode (toggle with D key)
-    this.debugMode = false;
-    this.input.keyboard.on("keydown-D", () => {
-      this.debugMode = !this.debugMode;
-    });
-
-    // Debug text panel (bottom-left corner, only visible in debug mode)
-    this.debugText = this.add
-      .text(10, 650, "", {
-        fontFamily: "monospace",
-        fontSize: "12px",
-        color: "#00ff00",
-        backgroundColor: "#000000",
-        padding: { x: 8, y: 8 },
-      })
-      .setDepth(1000);
-
-    // Setup cleanup for scene shutdown
-    // Fix: Remove keyboard event listeners to prevent memory leaks
+    // Scene shutdown cleanup — keyboard listeners + audio + particles + HUD.
     this.events.on('shutdown', () => {
-      // Clean up keyboard listeners
       this.input.keyboard.off('keydown-D');
       this.input.keyboard.off('keydown-ESC');
       this.input.keyboard.off('keydown-BACKSPACE');
       this.input.keyboard.off('keydown-ENTER');
       this.input.keyboard.off('keydown');
 
-      // Clean up speech recognition
       if (this.speech && this.speech.supported) {
         this.speech.stop();
         this.speech = null;
       }
-
-      // Clean up particle effects
-      if (this.particleEffects) {
-        this.particleEffects.destroyAll();
-      }
-
-      // Clean up boost emitter
+      this.particleEffects?.destroyAll();
       if (this.boostEmitter) {
         this.boostEmitter.destroy();
         this.boostEmitter = null;
       }
-
-      // Clean up graphics objects
-      if (this.scoreboardBg) {
-        this.scoreboardBg.destroy();
-        this.scoreboardBg = null;
-      }
-      if (this.scoreboardBorder) {
-        this.scoreboardBorder.destroy();
-        this.scoreboardBorder = null;
-      }
+      this.hud?.destroy();
     });
 
     // Speech recognition (voice mode only)
     this.speech = new FrenchSpeechRecognition();
 
     if (this.inputMode === "voice" && this.speech.supported) {
-      this.speech.onNumberRecognized = (number) => {
-        this.handleSpeechNumber(number);
-      };
-
-      this.speech.onInterimResult = (text) => {
-        if (this.answerText) {
-          this.answerText.setText(text || "_");
-          this.answerText.setColor("#ffff00");
-        }
-      };
-
-      this.speech.onError = (error) => {
-        console.error("Speech error:", error);
-      };
-
+      this.speech.onNumberRecognized = (number) => this.handleSpeechNumber(number);
+      this.speech.onInterimResult = (text) => this.hud.setAnswerText(text || "_");
+      this.speech.onError = (error) => console.error("Speech error:", error);
       this.speech.start();
 
-      // Microphone status indicator (below scoreboard)
-      this.micStatusText = this.add
-        .text(400, 530, "🎤 Écoute...", {
-          fontFamily: '"Press Start 2P"',
-          fontSize: "12px",
-          color: "#555555",
-          stroke: "#000000",
-          strokeThickness: 2,
-        })
-        .setOrigin(0.5);
+      this.hud.showMicStatus();
     } else if (this.inputMode === "voice" && !this.speech.supported) {
       console.warn("Speech recognition not supported in this browser");
     }
@@ -231,7 +182,7 @@ export default class GameScene extends Phaser.Scene {
     if (correctNumber === null) return;
 
     this.raceState.setAnswer(String(correctNumber));
-    this.answerText.setText(this.raceState.currentAnswer);
+    this.hud.setAnswerText(this.raceState.currentAnswer);
 
     // Lock further submissions and gag stale audio that may still arrive.
     if (this.speech && this.speech.supported) {
@@ -239,108 +190,6 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.submitAnswer();
-  }
-
-  /**
-   * Create HUD (Heads-Up Display)
-   * Displays lap counter, accuracy, timing info, and restart button
-   */
-  createHUD() {
-    // Top-left: Lap counter and accuracy
-    this.lapText = this.add.text(20, 20, `Tour: 1/${GAME.LAPS_TO_COMPLETE}`, {
-      fontFamily: '"Press Start 2P"',
-      fontSize: "16px",
-      color: "#ffffff",
-      stroke: "#000000",
-      strokeThickness: 3,
-    });
-
-    this.answersText = this.add.text(20, 50, "Correct: 0 / 0", {
-      fontFamily: '"Press Start 2P"',
-      fontSize: "10px",
-      color: "#aaaaaa",
-      stroke: "#000000",
-      strokeThickness: 2,
-    });
-
-    // Top-right: Lap times
-    this.lapTimesText = this.add
-      .text(780, 20, "", {
-        fontFamily: '"Press Start 2P"',
-        fontSize: "12px",
-        color: "#ffffff",
-        stroke: "#000000",
-        strokeThickness: 2,
-        align: "right",
-      })
-      .setOrigin(1, 0);
-
-    // Total time — prominent, centered above the scoreboard
-    this.totalTimeText = this.add
-      .text(400, 215, "0.000s", {
-        fontFamily: '"Press Start 2P"',
-        fontSize: "20px",
-        color: "#ffffff",
-        stroke: "#000000",
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5);
-
-    this.createRestartButton();
-  }
-
-  /**
-   * Create restart button in top-right corner
-   */
-  createRestartButton() {
-    const restartButton = this.add
-      .text(760, 110, "[ ↻ ]", {
-        fontFamily: '"Press Start 2P"',
-        fontSize: "20px",
-        color: "#ff6666",
-        stroke: "#000000",
-        strokeThickness: 3,
-      })
-      .setOrigin(1, 0);
-
-    restartButton.setInteractive({ useHandCursor: true });
-
-    restartButton.on("pointerover", () => {
-      this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER);
-      restartButton.setColor("#ff0000");
-      restartButton.setScale(1.1);
-    });
-
-    restartButton.on("pointerout", () => {
-      restartButton.setColor("#ff6666");
-      restartButton.setScale(1.0);
-    });
-
-    restartButton.on("pointerdown", () => {
-      this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK);
-      this.tweens.add({
-        targets: restartButton,
-        scaleX: 0.9,
-        scaleY: 0.9,
-        duration: 100,
-        yoyo: true,
-        onComplete: () => {
-          const confirmed = confirm(
-            "Abandonner la course et retourner au menu?"
-          );
-          if (confirmed) {
-            this.restartGame();
-          }
-        },
-      });
-    });
-
-    this.input.keyboard.on("keydown-ESC", () => {
-      const confirmed = confirm("Abandonner la course et retourner au menu?");
-      if (confirmed) {
-        this.restartGame();
-      }
-    });
   }
 
   /**
@@ -354,103 +203,25 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Create the central problem UI overlay:
-   * scoreboard background, problem text, timer bar, answer display, feedback
-   */
-  createProblemUI() {
-    const scoreboardWidth = 460;
-    const scoreboardHeight = 260;
-    const scoreboardX = 400;
-    const scoreboardY = 370;
-    const cornerRadius = 15;
-
-    // Scoreboard background (dark grey with yellow border)
-    this.scoreboardBg = this.add.graphics();
-    this.scoreboardBg.fillStyle(0x2a2a2a, 1);
-    this.scoreboardBg.fillRoundedRect(
-      scoreboardX - scoreboardWidth / 2,
-      scoreboardY - scoreboardHeight / 2,
-      scoreboardWidth,
-      scoreboardHeight,
-      cornerRadius
-    );
-
-    this.scoreboardBorder = this.add.graphics();
-    this.scoreboardBorder.lineStyle(4, 0xffff00);
-    this.scoreboardBorder.strokeRoundedRect(
-      scoreboardX - scoreboardWidth / 2,
-      scoreboardY - scoreboardHeight / 2,
-      scoreboardWidth,
-      scoreboardHeight,
-      cornerRadius
-    );
-
-    // Problem text (large, centered)
-    this.problemText = this.add
-      .text(400, 300, "", {
-        fontFamily: '"Press Start 2P"',
-        fontSize: "32px",
-        color: "#ffffff",
-        stroke: "#000000",
-        strokeThickness: 6,
-      })
-      .setOrigin(0.5);
-
-    // Timer bar (background + fill)
-    this.timerBarBg = this.add.rectangle(400, 370, 400, 20, 0x333333);
-    this.timerBarFill = this.add
-      .rectangle(400, 370, 400, 20, COLORS.TIMER_GREEN)
-      .setOrigin(0.5);
-
-    // Answer display (shows typed/spoken input)
-    this.answerText = this.add
-      .text(400, 450, "", {
-        fontFamily: '"Press Start 2P"',
-        fontSize: "24px",
-        color: "#ffff00",
-        stroke: "#000000",
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5);
-
-    // Feedback text (correct/timeout messages)
-    this.feedbackText = this.add
-      .text(400, 450, "", {
-        fontFamily: '"Press Start 2P"',
-        fontSize: "16px",
-        color: "#00ff00",
-        stroke: "#000000",
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
-  }
-
-  /**
    * Setup keyboard input for answering problems.
    * Only active in keyboard mode (voice mode uses speech callbacks).
    */
   setupAnswerInput() {
     if (this.inputMode !== "keyboard") return;
 
-    // Numeric input (0-9)
     this.input.keyboard.on("keydown", (event) => {
       if (event.key >= "0" && event.key <= "9") {
         this.raceState.appendDigit(event.key);
-        this.answerText.setText(this.raceState.currentAnswer || "_");
-        this.answerText.setColor("#ffff00");
+        this.hud.setAnswerText(this.raceState.currentAnswer || "_");
       }
     });
 
-    // Backspace to delete digits
     this.input.keyboard.on("keydown-BACKSPACE", () => {
       this.raceState.popDigit();
-      this.answerText.setText(this.raceState.currentAnswer || "_");
+      this.hud.setAnswerText(this.raceState.currentAnswer || "_");
     });
 
-    // Enter to submit
-    this.input.keyboard.on("keydown-ENTER", () => {
-      this.submitAnswer();
-    });
+    this.input.keyboard.on("keydown-ENTER", () => this.submitAnswer());
   }
 
   /**
@@ -480,11 +251,7 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Hide problem UI elements during countdown
-    this.problemText.setVisible(false);
-    this.timerBarBg.setVisible(false);
-    this.timerBarFill.setVisible(false);
-    this.answerText.setVisible(false);
-    this.totalTimeText.setVisible(false);
+    this.hud.hideProblemArea();
 
     // Strict 800ms intervals for even rhythm
     const interval = 800;
@@ -542,11 +309,7 @@ export default class GameScene extends Phaser.Scene {
       countdownText.destroy();
 
       // Show problem UI
-      this.problemText.setVisible(true);
-      this.timerBarBg.setVisible(true);
-      this.timerBarFill.setVisible(true);
-      this.answerText.setVisible(true);
-      this.totalTimeText.setVisible(true);
+      this.hud.showProblemArea();
 
       // Start the race with departure board animation for first problem
       this.raceState.startRace();
@@ -585,45 +348,31 @@ export default class GameScene extends Phaser.Scene {
       const cycleCount = 6;
       const cycleInterval = 60; // ms between flashes
 
-      this.problemText.setAlpha(1);
-      this.problemText.setScale(1);
+      this.hud.resetProblemTransform();
 
       for (let i = 0; i < cycleCount; i++) {
         this.time.delayedCall(i * cycleInterval, () => {
           const randTable = tables[Math.floor(Math.random() * tables.length)];
           const randNum = Math.floor(Math.random() * 9) + 2;
-          this.problemText.setText(`${randTable} × ${randNum} = ?`);
+          this.hud.setProblemText(`${randTable} × ${randNum} = ?`);
         });
       }
 
       this.time.delayedCall(cycleCount * cycleInterval, () => {
-        this.problemText.setText(finalText);
+        this.hud.setProblemText(finalText);
         this.audioManager.playSFX(AUDIO.SFX.PROBLEM_APPEAR);
       });
 
       armProblemTimer(cycleCount * cycleInterval);
     } else {
-      // Normal: scale+fade in.
-      this.problemText.setText(finalText);
-      this.problemText.setAlpha(0);
-      this.problemText.setScale(0.8);
-      this.tweens.add({
-        targets: this.problemText,
-        alpha: 1,
-        scale: 1,
-        duration: 300,
-        ease: "Back.easeOut",
-      });
-
+      this.hud.animateProblemIn(finalText);
       this.audioManager.playSFX(AUDIO.SFX.PROBLEM_APPEAR);
       armProblemTimer();
     }
 
     // Reset visible answer + feedback (state was already cleared in showProblem).
-    this.feedbackText.setText("");
-    this.feedbackText.setScale(1);
-    this.answerText.setText("_");
-    this.answerText.setColor("#ffff00");
+    this.hud.clearFeedback();
+    this.hud.setAnswerText("_");
 
     // Reset speech recognition cooldown for new problem
     if (this.speech && this.speech.supported) {
@@ -646,34 +395,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Play "passing through" animation for correct answer.
-   * Blue number grows and fades out.
-   */
-  playCorrectAnswerAnimation(answer) {
-    const answerAnimation = this.add
-      .text(400, 430, String(answer), {
-        fontFamily: '"Press Start 2P"',
-        fontSize: "24px",
-        color: "#00aaff",
-        stroke: "#000000",
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5)
-      .setDepth(1000);
-
-    this.tweens.add({
-      targets: answerAnimation,
-      scale: 3.5,
-      alpha: 0,
-      duration: 500,
-      ease: "Quad.easeOut",
-      onComplete: () => {
-        answerAnimation.destroy();
-      },
-    });
-  }
-
-  /**
    * Handle correct answer: boost car, play effects, schedule next problem
    */
   handleCorrectAnswer() {
@@ -686,7 +407,7 @@ export default class GameScene extends Phaser.Scene {
     this.vehiclePhysics.applyBoost(boostStrength);
 
     const correctAnswer = this.mathProblem.currentProblem.answer;
-    this.playCorrectAnswerAnimation(correctAnswer);
+    this.hud.playCorrectAnswerAnimation(correctAnswer);
     this.triggerBoostExhaust(boostStrength);
     this.audioManager.startBoostSound(boostStrength);
     this.particleEffects.createCorrectFlash(400, 300);
@@ -695,18 +416,9 @@ export default class GameScene extends Phaser.Scene {
     this.mathProblem.timerActive = false;
     this.stats.recordCorrectAnswer();
 
-    this.feedbackText.setText(`Bravo! +${boostStrength.toFixed(2)} boost`);
-    this.feedbackText.setColor("#00ff00");
-    this.feedbackText.setScale(0.8);
-    this.tweens.add({
-      targets: this.feedbackText,
-      scale: 1,
-      duration: 200,
-      ease: "Back.easeOut",
-    });
-
+    this.hud.showCorrectFeedback(`Bravo! +${boostStrength.toFixed(2)} boost`);
     this.raceState.clearAnswer();
-    this.answerText.setText("");
+    this.hud.clearAnswerText();
 
     this.time.delayedCall(TIMING.CORRECT_ANSWER_DELAY, () => {
       this.startNewProblem();
@@ -723,8 +435,7 @@ export default class GameScene extends Phaser.Scene {
     // Stay in 'answering' phase. Just clear the buffer and flash red — the
     // player can retry immediately and the timer keeps counting down.
     this.raceState.clearAnswer();
-    this.answerText.setText("_");
-    this.answerText.setColor("#ff0000");
+    this.hud.setAnswerText("_", "#ff0000");
   }
 
   /**
@@ -740,13 +451,10 @@ export default class GameScene extends Phaser.Scene {
     this.audioManager.stopBoostSound();
     this.audioManager.playSFX(AUDIO.SFX.INCORRECT, 0.7);
 
-    // Show the correct answer so the child can learn.
     const correctAnswer = this.mathProblem.currentProblem.answer;
-    this.feedbackText.setText(`Temps écoulé! → ${correctAnswer}`);
-    this.feedbackText.setColor("#ff6600");
-
+    this.hud.showTimeoutFeedback(correctAnswer);
     this.raceState.clearAnswer();
-    this.answerText.setText("");
+    this.hud.clearAnswerText();
 
     this.time.delayedCall(800, () => {
       this.startNewProblem(true);
@@ -754,24 +462,12 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Update timer bar width and color, and detect timeout
+   * Drive the HUD's timer bar from the math-problem timer, and detect timeout.
+   * RaceState.markTimeout() guards against double-firing internally.
    */
   updateTimerBar() {
-    const percent = this.mathProblem.getRemainingPercent();
+    this.hud.updateTimerBar(this.mathProblem.getRemainingPercent());
 
-    this.timerBarFill.width = 400 * percent;
-
-    if (percent > 0.5) {
-      this.timerBarFill.setFillStyle(COLORS.TIMER_GREEN);
-    } else if (percent > 0.25) {
-      this.timerBarFill.setFillStyle(COLORS.TIMER_YELLOW);
-    } else {
-      this.timerBarFill.setFillStyle(COLORS.TIMER_RED);
-    }
-
-    // Detect timeout: timer expired and we're still in 'answering'.
-    // RaceState.markTimeout() guards against double-firing internally, so
-    // this check just gates whether we even bother calling it.
     if (
       this.mathProblem.timer <= 0 &&
       !this.mathProblem.timerActive &&
@@ -925,9 +621,12 @@ export default class GameScene extends Phaser.Scene {
       this.audioManager.stopBoostSound();
     }
 
-    // Update HUD
-    this.speedText.setText(`Speed: ${this.vehiclePhysics.velocity.toFixed(2)}`);
-    this.updateHUD();
+    // Update HUD (lap counter, accuracy, timing, speed)
+    this.hud.update({
+      stats: this.stats,
+      elapsedTime: this.raceState.elapsedTime,
+      velocity: this.vehiclePhysics.velocity,
+    });
     this.updateDebug();
   }
 
@@ -979,45 +678,13 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Update HUD: lap counter, accuracy, timing displays
-   */
-  updateHUD() {
-    this.lapText.setText(`Tour: ${this.stats.currentLap}/${GAME.LAPS_TO_COMPLETE}`);
-    this.answersText.setText(
-      `Correct: ${this.stats.correctAnswers} / ${this.stats.totalProblemsPresented}`
-    );
-
-    const currentLapTime = this.stats.getCurrentLapTime(this.raceState.elapsedTime);
-    const lastLapTime = this.stats.getLastLapTime();
-
-    let timesText = `Actuel: ${this.stats.formatTime(currentLapTime)}\n`;
-    if (lastLapTime !== null) {
-      timesText += `Dernier: ${this.stats.formatTime(lastLapTime)}\n`;
-    }
-    if (this.stats.bestLapTime !== Infinity) {
-      timesText += `Meilleur: ${this.stats.formatTime(this.stats.bestLapTime)}`;
-    }
-    this.lapTimesText.setText(timesText);
-
-    const totalTime = this.stats.isRaceComplete
-      ? this.stats.totalTime
-      : this.raceState.elapsedTime;
-    this.totalTimeText.setText(this.stats.formatTime(totalTime));
-  }
-
-  /**
-   * Update debug overlay with physics information (D key to toggle)
+   * Compute and forward debug overlay text. The HUD owns visibility.
    */
   updateDebug() {
-    if (!this.debugMode) {
-      this.debugText.setVisible(false);
-      return;
-    }
+    if (!this.hud.isDebugVisible()) return;
 
-    this.debugText.setVisible(true);
     const p = this.vehiclePhysics;
-
-    const debugInfo = [
+    this.hud.setDebugText([
       "DEBUG MODE (Press D to toggle)",
       "─".repeat(35),
       `Velocity:     ${p.velocity.toFixed(4)} / ${p.maxSpeed}`,
@@ -1025,8 +692,6 @@ export default class GameScene extends Phaser.Scene {
       `Position:     ${p.position.toFixed(4)}`,
       `Friction:     ${PHYSICS.FRICTION}`,
       `Max Speed:    ${PHYSICS.MAX_SPEED} (${(1 / PHYSICS.MAX_SPEED).toFixed(1)}s/lap)`,
-    ].join("\n");
-
-    this.debugText.setText(debugInfo);
+    ]);
   }
 }
