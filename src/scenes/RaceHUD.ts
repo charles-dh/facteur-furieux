@@ -429,5 +429,7 @@ export default class RaceHUD {
     // historically a source of leaks in this scene.
     this.scoreboardBg?.destroy();
     this.scoreboardBorder?.destroy();
+    this.micStatusText?.destroy();
+    this.restartButton?.destroy();
   }
 }

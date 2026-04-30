@@ -133,8 +133,6 @@ export default class ParticleEffects {
       duration: 200,
       onComplete: () => flash.destroy()
     });
-
-    // Screen shake handled separately by ScreenShake utility
   }
 
   /**

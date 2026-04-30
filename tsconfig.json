@@ -12,9 +12,11 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
 
-    "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
 
     "noEmit": true,
     "skipLibCheck": true,
