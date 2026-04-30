@@ -8,6 +8,7 @@ import MathProblem from "../systems/MathProblem.js";
 import StatisticsTracker from "../systems/StatisticsTracker.js";
 import RaceState from "../systems/RaceState.js";
 import RaceHUD from "./RaceHUD.js";
+import InputController from "../systems/InputController.js";
 import FrenchSpeechRecognition from "../systems/FrenchSpeechRecognition.js";
 import AudioManager from "../systems/AudioManager.js";
 import ParticleEffects from "../systems/ParticleEffects.js";
@@ -118,15 +119,14 @@ export default class GameScene extends Phaser.Scene {
     // Debug toggle.
     this.input.keyboard.on('keydown-D', () => this.hud.toggleDebug());
 
-    this.setupAnswerInput();
-
-    // Scene shutdown cleanup — keyboard listeners + audio + particles + HUD.
+    // Scene shutdown cleanup. InputController owns its own keyboard and
+    // speech listeners; the scene only manages the global ones (D, ESC).
     this.events.on('shutdown', () => {
       this.input.keyboard.off('keydown-D');
       this.input.keyboard.off('keydown-ESC');
-      this.input.keyboard.off('keydown-BACKSPACE');
-      this.input.keyboard.off('keydown-ENTER');
-      this.input.keyboard.off('keydown');
+
+      this.inputController?.destroy();
+      this.inputController = null;
 
       if (this.speech && this.speech.supported) {
         this.speech.stop();
@@ -140,19 +140,15 @@ export default class GameScene extends Phaser.Scene {
       this.hud?.destroy();
     });
 
-    // Speech recognition (voice mode only)
+    // Speech recognition is constructed even in keyboard mode — the
+    // controller no-ops if mode is keyboard. This keeps the lifecycle
+    // unconditional and the cleanup path uniform.
     this.speech = new FrenchSpeechRecognition();
-
-    if (this.inputMode === "voice" && this.speech.supported) {
-      this.speech.onNumberRecognized = (number) => this.handleSpeechNumber(number);
-      this.speech.onInterimResult = (text) => this.hud.setAnswerText(text || "_");
-      this.speech.onError = (error) => console.error("Speech error:", error);
-      this.speech.start();
-
-      this.hud.showMicStatus();
-    } else if (this.inputMode === "voice" && !this.speech.supported) {
-      console.warn("Speech recognition not supported in this browser");
+    if (this.inputMode === 'voice' && !this.speech.supported) {
+      console.warn('Speech recognition not supported in this browser');
     }
+
+    this.setupInput();
 
     // Play countdown before starting the race
     this.raceState.startCountdown();
@@ -160,36 +156,47 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Handle speech-recognized number(s).
-   * Checks if any recognized number matches the expected answer.
+   * Wire keyboard + voice input to game actions via InputController.
+   * Voice gating happens at the source; keyboard buffering is allowed
+   * during the read-delay so eager players aren't punished.
    */
-  handleSpeechNumber(numbers) {
-    if (!this.raceState.isAcceptingAnswers()) return;
+  setupInput() {
+    this.inputController = new InputController({
+      scene: this,
+      mode: this.inputMode,
+      speech: this.speech,
+      isAccepting: () => this.raceState.isAcceptingAnswers(),
+      getExpectedAnswer: () => this.mathProblem.currentProblem?.answer ?? null,
+    });
 
-    // Find the correct answer in the recognized sequence. We only auto-submit
-    // when the player actually says the right number — wrong utterances are
-    // ignored (the player just keeps trying).
-    const expectedAnswer = this.mathProblem.currentProblem?.answer;
-    let correctNumber = null;
+    this.inputController.on('digit', (digit) => {
+      this.raceState.appendDigit(digit);
+      this.hud.setAnswerText(this.raceState.currentAnswer || '_');
+    });
 
-    for (const number of numbers) {
-      if (number === expectedAnswer) {
-        correctNumber = number;
-        break;
-      }
+    this.inputController.on('backspace', () => {
+      this.raceState.popDigit();
+      this.hud.setAnswerText(this.raceState.currentAnswer || '_');
+    });
+
+    this.inputController.on('submit', () => this.submitAnswer());
+
+    this.inputController.on('voiceInterim', (text) => {
+      this.hud.setAnswerText(text || '_');
+    });
+
+    this.inputController.on('voiceMatch', (number) => {
+      this.raceState.setAnswer(String(number));
+      this.hud.setAnswerText(this.raceState.currentAnswer);
+      // Gag any trailing audio for ~500ms so the same utterance doesn't
+      // re-trigger us via a delayed final result.
+      if (this.speech?.supported) this.speech.setCooldown(500);
+      this.submitAnswer();
+    });
+
+    if (this.inputMode === 'voice' && this.speech.supported) {
+      this.hud.showMicStatus();
     }
-
-    if (correctNumber === null) return;
-
-    this.raceState.setAnswer(String(correctNumber));
-    this.hud.setAnswerText(this.raceState.currentAnswer);
-
-    // Lock further submissions and gag stale audio that may still arrive.
-    if (this.speech && this.speech.supported) {
-      this.speech.setCooldown(500);
-    }
-
-    this.submitAnswer();
   }
 
   /**
@@ -200,28 +207,6 @@ export default class GameScene extends Phaser.Scene {
       this.speech.stop();
     }
     this.scene.start("MenuScene");
-  }
-
-  /**
-   * Setup keyboard input for answering problems.
-   * Only active in keyboard mode (voice mode uses speech callbacks).
-   */
-  setupAnswerInput() {
-    if (this.inputMode !== "keyboard") return;
-
-    this.input.keyboard.on("keydown", (event) => {
-      if (event.key >= "0" && event.key <= "9") {
-        this.raceState.appendDigit(event.key);
-        this.hud.setAnswerText(this.raceState.currentAnswer || "_");
-      }
-    });
-
-    this.input.keyboard.on("keydown-BACKSPACE", () => {
-      this.raceState.popDigit();
-      this.hud.setAnswerText(this.raceState.currentAnswer || "_");
-    });
-
-    this.input.keyboard.on("keydown-ENTER", () => this.submitAnswer());
   }
 
   /**
