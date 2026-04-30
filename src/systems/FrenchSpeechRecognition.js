@@ -1,20 +1,20 @@
+import { parseSpokenNumbers } from './frenchNumberParser.js';
+
 /**
- * French Speech Recognition System
+ * French Speech Recognition wrapper around the Web Speech API.
  *
- * Uses Web Speech API to recognize spoken French numbers (2-100)
- * Provides voice-controlled answer input for multiplication problems
+ * Responsibilities (this class):
+ *  - Lifecycle: start/stop/auto-restart on transient errors
+ *  - Cooldowns: ignore stale audio after a problem changes
+ *  - Duplicate suppression: block repeat interim results within 500ms
  *
- * Features:
- * - Continuous listening during gameplay
- * - French number parsing (text → numeric)
- * - Homophone handling (six/sis, cent/sang)
- * - Browser compatibility detection
- * - Microphone permission handling
+ * The actual text → number parsing lives in frenchNumberParser.ts so it
+ * can be unit tested without mocking the browser API.
  *
  * Limitations:
- * - Chrome/Edge only (Web Speech API support)
- * - Requires HTTPS in production (mic permissions)
- * - Recognition accuracy varies with microphone quality and accent
+ *  - Chrome/Edge only (Web Speech API support)
+ *  - Requires HTTPS in production (mic permission)
+ *  - Recognition accuracy varies with microphone quality and accent
  */
 export default class FrenchSpeechRecognition {
   constructor() {
@@ -198,118 +198,14 @@ export default class FrenchSpeechRecognition {
   }
 
   /**
-   * Parse French number text to numeric value(s)
-   *
-   * Handles:
-   * - Numeric digits (24, 10, 9) - Chrome often returns these directly
-   * - Multiple numbers in sequence ("12 18" → [12, 18])
-   * - Basic numbers (deux → 2, dix → 10)
-   * - Compound numbers (vingt-trois → 23)
-   * - Special cases (soixante-dix → 70, quatre-vingt → 80)
+   * Parse French number text into numeric value(s).
+   * Delegates to the pure parseSpokenNumbers() helper — kept here as an
+   * instance method for backward compat with existing call sites.
    *
    * @param {string} text - Spoken text in French
    * @returns {number[]} Array of numeric values (empty if no valid numbers found)
    */
   parseNumber(text) {
-    // Remove common noise words
-    text = text.replace(/^(euh|heu|alors|donc)\s+/gi, '').trim();
-
-    const results = [];
-
-    // Check if text contains multiple numeric digits separated by spaces
-    // e.g., "12 18" or "6 12 18"
-    const numericTokens = text.split(/\s+/);
-    let foundNumericSequence = false;
-
-    for (const token of numericTokens) {
-      const numericValue = parseInt(token, 10);
-      if (!isNaN(numericValue) && numericValue >= 2 && numericValue <= 150) {
-        results.push(numericValue);
-        foundNumericSequence = true;
-      }
-    }
-
-    // If we found numeric sequences, return them
-    if (foundNumericSequence) {
-      return results;
-    }
-
-    // Otherwise, try to parse as French text (single number)
-    const frenchNumber = this.parseFrenchText(text);
-    if (frenchNumber !== null) {
-      results.push(frenchNumber);
-    }
-
-    return results;
-  }
-
-  /**
-   * Parse French text to a single number
-   * Helper function for parseNumber()
-   *
-   * @param {string} text - French text to parse
-   * @returns {number|null} Numeric value or null if not valid
-   */
-  parseFrenchText(text) {
-
-    // French number mappings
-    const numbers = {
-      'zéro': 0, 'zero': 0,
-      'un': 1, 'une': 1,
-      'deux': 2,
-      'trois': 3,
-      'quatre': 4,
-      'cinq': 5,
-      'six': 6, 'sis': 6, // Homophone
-      'sept': 7, 'set': 7,
-      'huit': 8,
-      'neuf': 9,
-      'dix': 10, 'dis': 10,
-      'onze': 11,
-      'douze': 12,
-      'treize': 13,
-      'quatorze': 14,
-      'quinze': 15,
-      'seize': 16,
-      'dix-sept': 17,
-      'dix-huit': 18,
-      'dix-neuf': 19,
-      'vingt': 20,
-      'trente': 30,
-      'quarante': 40,
-      'cinquante': 50,
-      'soixante': 60,
-      'soixante-dix': 70,
-      'quatre-vingt': 80, 'quatre-vingts': 80,
-      'quatre-vingt-dix': 90,
-      'cent': 100, 'sang': 100 // Homophone
-    };
-
-    // Try exact match first
-    if (numbers.hasOwnProperty(text)) {
-      return numbers[text];
-    }
-
-    // Handle compound numbers by splitting and adding
-    let result = 0;
-    const parts = text.split(/[\s\-]+/);
-
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-
-      if (part === 'et') continue; // Skip "et" connector
-
-      if (numbers.hasOwnProperty(part)) {
-        const value = numbers[part];
-        result += value;
-      }
-    }
-
-    // Validate result is in expected range (2-150 for multiplication results)
-    if (result >= 2 && result <= 150) {
-      return result;
-    }
-
-    return null;
+    return parseSpokenNumbers(text);
   }
 }
