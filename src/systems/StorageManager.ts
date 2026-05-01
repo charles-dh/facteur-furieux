@@ -1,28 +1,23 @@
 /**
- * StorageManager - Centralized localStorage helpers
+ * StorageManager — centralized localStorage helpers for player preferences.
  *
- * All player preference persistence in one place:
- * - Player name
- * - Input mode (voice / keyboard)
- *
- * Keeps storage keys and default values consistent across scenes.
+ * Keys and defaults live in one place so scenes don't drift apart on what's
+ * stored or what fallback to use when storage is unavailable.
  */
+
+export type InputMode = 'voice' | 'keyboard';
 
 const STORAGE_KEYS = {
   PLAYER_NAME: 'facteur_furieux_player_name',
   INPUT_MODE: 'facteur_furieux_input_mode',
-};
+} as const;
 
 const DEFAULTS = {
   PLAYER_NAME: 'Pilote',
-  INPUT_MODE: 'voice',
+  INPUT_MODE: 'voice' as InputMode,
 };
 
-/**
- * Load the saved player name.
- * @returns {string} Player name or default "Pilote"
- */
-export function loadPlayerName() {
+export function loadPlayerName(): string {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.PLAYER_NAME);
     return saved && saved.trim().length > 0 ? saved : DEFAULTS.PLAYER_NAME;
@@ -31,23 +26,15 @@ export function loadPlayerName() {
   }
 }
 
-/**
- * Save the player name.
- * @param {string} name
- */
-export function savePlayerName(name) {
+export function savePlayerName(name: string): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PLAYER_NAME, name);
   } catch {
-    // localStorage might be full or unavailable — silently ignore
+    // localStorage unavailable or full — silently ignore.
   }
 }
 
-/**
- * Load the saved input mode.
- * @returns {'voice'|'keyboard'}
- */
-export function loadInputMode() {
+export function loadInputMode(): InputMode {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.INPUT_MODE);
     return saved === 'keyboard' ? 'keyboard' : DEFAULTS.INPUT_MODE;
@@ -56,11 +43,7 @@ export function loadInputMode() {
   }
 }
 
-/**
- * Save the input mode.
- * @param {'voice'|'keyboard'} mode
- */
-export function saveInputMode(mode) {
+export function saveInputMode(mode: InputMode): void {
   try {
     localStorage.setItem(STORAGE_KEYS.INPUT_MODE, mode);
   } catch {

@@ -102,7 +102,7 @@ Transform multiplication practice from rote memorization into an exciting racing
 - **Total correct/incorrect answers**
 - "Rejouer" (Play Again) button → Returns to Welcome Screen
 
-**No scoring system**: Race time is the performance metric. Players compete against their own best times.
+**Scoring**: Race time is the performance metric. A local top-10 leaderboard (per browser) lets players chase their own best times.
 
 ## Problem Generation
 
@@ -164,13 +164,7 @@ A successful game session achieves:
 - Engaging visual/audio feedback
 - Educational value: reinforced multiplication fluency
 
-## Future Enhancements (Post-MVP)
+## Future Enhancements
 
-- Multiple track designs with varying difficulty
-- Power-ups (shields, mega-boost, time freeze)
-- Multiplayer racing
-- Leaderboards
-- Different game modes (time trial, survival)
-- Customizable car appearance
-- Achievement system
+See [`enhancement-ideas.md`](./enhancement-ideas.md) for the current brainstorm list.
 

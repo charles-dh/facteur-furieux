@@ -1,9 +1,9 @@
-// Retro arcade color palette
+// Retro arcade color palette. Numeric Phaser-style hex (0xRRGGBB).
 export const COLORS = {
-  // Car colors
+  // Car
   CAR_RED: 0xff0000,
 
-  // Track colors
+  // Track
   TRACK_GRAY: 0x404040,
   TRACK_LINE_WHITE: 0xffffff,
   START_FINISH_RED: 0xff0000,
@@ -11,21 +11,21 @@ export const COLORS = {
   // Background
   GRASS_GREEN: 0x00aa00,
 
-  // UI colors
+  // UI
   UI_TEXT: 0xffffff,
   UI_ACCENT: 0xffff00,
   UI_BACKGROUND: 0x000000,
 
-  // Timer bar colors
+  // Timer bar
   TIMER_GREEN: 0x00ff00,
   TIMER_YELLOW: 0xffff00,
   TIMER_RED: 0xff0000,
 
-  // Feedback colors
+  // Feedback
   CORRECT_GREEN: 0x00ff00,
   INCORRECT_RED: 0xff0000,
 
   // Particles
   BOOST_ORANGE: 0xff6600,
-  BOOST_YELLOW: 0xffff00
-};
+  BOOST_YELLOW: 0xffff00,
+} as const;
