@@ -24,27 +24,30 @@ src/
   systems/
     RaceState.ts          # State machine: idle → countdown → awaitingProblem → answering → correct/timeout → finished
     InputController.ts    # Unified keyboard + voice input emitter
-    VehiclePhysics.ts     # velocity / friction / boost
+    VehiclePhysics.ts     # velocity / friction / boost (with perspective scaling on the position step)
     MathProblem.ts        # Problem generation, timer, boost calculation
     StatisticsTracker.ts  # Lap times, accuracy, race timer
     LeaderboardManager.ts # Top-10 persistence
     StorageManager.ts     # localStorage helpers (player name, input mode)
     frenchNumberParser.ts # Pure parser for spoken French numbers (homophones included)
+    Track.ts              # SVG-traced path → canvas-space {x, y, angle}
+    carSprite.ts          # heading → spritesheet frame index + asset path (banker's rounding to match the asset filenames)
+    svgPathParser.ts      # Pure parser: SVG `d` string → Phaser.Curves.Path
     FrenchSpeechRecognition.js  # Web Speech API wrapper
     AudioManager.js       # SFX + engine sound coordination
     SoundGenerator.js     # Procedural Web Audio synthesis
     ParticleEffects.js    # Boost/celebration/flash particles
-    Track.js              # Phaser Curves.Path + lap detection
 
   config/
     constants.ts          # PHYSICS, TIMING, BOOST, GAME, TRACK, CAR
+    trackConfig.ts        # Active track image + traced SVG path + viewBox
     colors.ts             # Palette
     audioConfig.ts        # AUDIO + EFFECTS
     gameConfig.ts         # Phaser game config
 
   main.ts                 # Entry point
 
-tests/                    # Vitest, ~70 tests on pure systems
+tests/                    # Vitest, ~90 tests on pure systems
 ```
 
 ## Architecture
@@ -65,6 +68,23 @@ GameScene used to be a 1000-line monolith. After the refactor it owns the per-fr
 ### Why custom physics
 
 Phaser's Arcade/Matter engines aren't used. Racing along a path is a 1D progress integration, not collision-based — much simpler to model `position`/`velocity`/`friction` directly and tune by feel. See `VehiclePhysics.ts`.
+
+### Perspective rendering
+
+The track is a 3/4-perspective background image with the road centerline traced as an SVG path. `Track.ts` parses that path and applies the same image transform the renderer uses, so the path and the painted road are guaranteed to align (single source of truth — change the image and the path scales with it).
+
+Two scales are derived from the car's Y position on the canvas each frame:
+
+- **Sprite size** — `GameScene.computeSizeScale(y)` lerps between `CAR.PERSPECTIVE_FAR_SCALE` (top) and `CAR.PERSPECTIVE_NEAR_SCALE` (bottom). Applied in both `createCar()` and `update()` so the car doesn't pop when the countdown ends.
+- **Speed** — `GameScene.computePerspectiveFactor(y)` lerps between `PHYSICS.PERSPECTIVE_FAR_FACTOR` and `PHYSICS.PERSPECTIVE_NEAR_FACTOR`, and is passed to `VehiclePhysics.update(delta, factor)` to scale only the position step. Velocity, friction, and acceleration are unaffected so boosts feel the same regardless of depth.
+
+### Car placement (bicycle model)
+
+The car sprite isn't placed at `Track.getPositionAt(t)` directly. Instead `update()` samples two points on the path — half a wheelbase behind and ahead — and places the sprite at their midpoint, with heading along the rear→front line. This makes the front wheel trace a smooth arc on tight curves; using the raw path point made the sprite look like it pivoted on its center. Effective wheelbase = `0.6 * CAR.WIDTH` in canvas pixels, converted to path-progress units via `track.length`.
+
+### Car spritesheet
+
+The car uses 32 pre-rendered angle frames at 11.25° steps (`CAR.NUM_ANGLE_FRAMES`). Filenames are `car_NNN.png` where `NNN` is the rounded angle in degrees. The asset generator uses Python's banker's rounding (round half-to-even), which differs from JS's `Math.round` (round half toward +∞) on the 0.5 ties: `2 × 11.25 = 22.5` becomes `22` not `23`. `carSprite.ts` uses a `bankersRound` helper to match — without it, the four tie-frames (22, 112, 202, 292) silently 404 and Phaser renders the magenta-on-black missing-texture placeholder.
 
 ### Speech recognition
 
@@ -87,18 +107,20 @@ No server, no analytics.
 
 ```
 GameScene.update(time, delta)
-  → VehiclePhysics.update(delta)         # integrate velocity/friction
-  → Track.getPositionAt(progress)        # progress → {x, y, angle}
-  → carSprite.setPosition(...)
-  → RaceState.tick(delta)                # decrement timer, fire timeout
-  → StatisticsTracker.update(...)        # lap detection, race clock
+  → computePerspectiveFactor(car.y)              # depth → speed multiplier
+  → VehiclePhysics.update(delta, factor)         # integrate velocity/friction
+  → Track.getPositionAt(t ± halfWheelbase)       # rear + front samples → midpoint, heading
+  → carSprite.setTexture(frameIndexForHeading(heading))
+  → carSprite.setDisplaySize(CAR * computeSizeScale(car.y))   # depth → size
+  → MathProblem.updateTimer(delta) + RaceState.markTimeout()  # if timer expired
+  → StatisticsTracker.recordLap(...)             # via lap-wrap detection
   → RaceHUD.update({ stats, elapsedTime, velocity })
   → check finished → GameOverScene
 ```
 
 ## Testing
 
-Pure systems have Vitest coverage (~70 tests): `MathProblem`, `VehiclePhysics`, `StatisticsTracker`, `StorageManager`, `LeaderboardManager`, `frenchNumberParser`, `RaceState`. Scenes and Phaser-coupled code are validated by playtesting. Goal is "catch major breaks", not coverage targets.
+Pure systems have Vitest coverage (~90 tests): `MathProblem`, `VehiclePhysics`, `StatisticsTracker`, `StorageManager`, `LeaderboardManager`, `frenchNumberParser`, `RaceState`, `carSprite`, `svgPathParser`. Scenes and Phaser-coupled code are validated by playtesting. Goal is "catch major breaks", not coverage targets.
 
 ## Browser support
 

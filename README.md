@@ -6,7 +6,8 @@ Educational racing game for learning multiplication tables through voice-control
 
 - **Phaser 3** - 2D game framework
 - **Vite** - Build tool and dev server
-- **JavaScript (ES6+)** - No TypeScript for MVP
+- **TypeScript** (strict) - pure systems and configs are `.ts`; scenes are still `.js` and converted opportunistically
+- **Vitest** - unit tests for pure logic
 - **Web Speech API** - French voice recognition
 
 ## Architecture Notes
@@ -20,21 +21,21 @@ Educational racing game for learning multiplication tables through voice-control
    - Vehicle physics simulation independent of track shape
    - Velocity, acceleration, friction calculations
    - Car can stop completely (zero velocity)
-   - Located in: `src/systems/VehiclePhysics.js`
+   - Per-frame perspective scaling (slower when far on the tilted track, faster when near)
+   - Located in: `src/systems/VehiclePhysics.ts`
 
 2. **Track Layer** (visual representation)
 
-   - Path definition using Phaser curves
-   - Converts progress (0-1) to world position {x, y, angle}
-   - Top-down rendering only
-   - Located in: `src/systems/Track.js`
+   - Path traced over a 3/4-perspective background image (SVG path → `Phaser.Curves.Path`)
+   - Converts progress (0-1) to canvas-space `{x, y, angle}`
+   - Located in: `src/systems/Track.ts`
 
 3. **Game Logic Layer**
 
    - Problem generation from selected multiplication tables
    - Answer validation
    - Time-based performance tracking (no point scoring)
-   - Located in: `src/systems/MathProblem.js`, `src/systems/StatisticsTracker.js`
+   - Located in: `src/systems/MathProblem.ts`, `src/systems/StatisticsTracker.ts`
 
 4. **Input Layer**
 
@@ -51,9 +52,10 @@ Educational racing game for learning multiplication tables through voice-control
 ### Key Design Decisions
 
 - **No Phaser Physics Engines** - Custom physics for precise control and simpler tuning
-- **Code-Generated Graphics** - No sprite assets for MVP; retro arcade aesthetic using Phaser Graphics API
+- **Pre-rendered art** - 3/4-perspective track background and a 32-frame car spritesheet (one PNG per heading angle, 11.25° apart). HUD/UI still uses the Phaser Graphics API.
 - **Client-Side Speech Recognition** - No server required, zero latency, free
-- **Top-Down View** - Fixed overhead camera showing entire track (bird's eye perspective)
+- **3/4 Perspective View** - Fixed camera looking down at a tilted track. The car sprite scales and slows with depth so it reads correctly at every position.
+- **Bicycle-model car placement** - The sprite's center sits at the midpoint between two path samples (rear/front axle), so the front wheel traces a smooth arc on tight curves instead of pivoting on the center.
 - **Time-Based Scoring** - Race time is the only metric; no points system
 
 ### Critical Game Mechanics
@@ -65,14 +67,17 @@ Educational racing game for learning multiplication tables through voice-control
 
 ### Tuning Parameters
 
-All game balance constants are centralized in `src/config/constants.js`:
+All game balance constants are centralized in `src/config/constants.ts`:
 
-- Physics (max speed, friction, acceleration)
+- Physics (max speed, friction, acceleration, perspective speed factors)
 - Timing (problem timer, delays, feedback duration)
 - Boost scaling
 - Game rules (laps to complete, canvas size)
+- Car (display size, number of angle frames, perspective size factors)
 
-**Always adjust constants.js rather than hardcoding values.**
+Track-specific constants (background image, SVG path, viewBox) live in `src/config/trackConfig.ts`.
+
+**Always adjust the config files rather than hardcoding values.**
 
 ## Getting Started
 
@@ -115,23 +120,26 @@ vercel
 
 ```
 /src
-  /scenes          # Phaser scenes (Menu, Game, GameOver)
-  /systems         # Game systems (Physics, Track, Math, Speech)
-  /config          # Configuration files
-    gameConfig.js  # Phaser configuration
-    constants.js   # Tuning parameters
-    colors.js      # Retro color palette
-  main.js          # Entry point
+  /scenes              # Phaser scenes (Menu, Game, GameOver, Leaderboard, RaceHUD)
+  /systems             # Game systems (Physics, Track, Math, Speech, Audio, …)
+  /config              # Configuration files
+    gameConfig.ts      # Phaser configuration
+    constants.ts       # Tuning parameters (physics, timing, car, game)
+    trackConfig.ts     # Active track image + traced SVG path
+    colors.ts          # Retro color palette
+    audioConfig.ts     # SFX keys and audio settings
+  main.ts              # Entry point
 
-/docs              # Documentation and specifications
-/public            # Static assets
+/assets                # Pre-rendered art (track image, 32-frame car spritesheet, audio)
+/tests                 # Vitest unit tests for pure systems
+/docs                  # Documentation and specifications
 ```
 
 ## Documentation
 
 - [Game Specifications](./docs/game-specifications.md)
 - [Technical Architecture](./docs/technical-architecture.md)
-- [Implementation Plan](./docs/implementation-plan.md)
+- [Enhancement Ideas](./docs/enhancement-ideas.md)
 
 ## Browser Requirements
 

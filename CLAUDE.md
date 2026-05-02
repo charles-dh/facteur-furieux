@@ -8,15 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Target audience:** French-speaking children (ages 7-12)
 - **Core mechanic:** Answer multiplication problems with voice to boost car speed
-- **Tech stack:** Phaser 3, Vite, JavaScript ES6+, Web Speech API
-- **Browser:** Chrome only (for Web Speech API support)
+- **Tech stack:** Phaser 3, Vite, TypeScript (strict, with some legacy `.js` scenes), Web Speech API
+- **Browser:** Chrome / Edge (for Web Speech API support)
 
 **Key documentation:**
 
 - [`README.md`](./README.md) - Quick start and project structure
 - [`docs/game-specifications.md`](./docs/game-specifications.md) - Complete game design and mechanics
 - [`docs/technical-architecture.md`](./docs/technical-architecture.md) - System design and implementation details
-- [`docs/implementation-plan.md`](./docs/implementation-plan.md) - Development milestones
+- [`docs/enhancement-ideas.md`](./docs/enhancement-ideas.md) - Brainstorm for future work
 
 ## Code Style & Philosophy
 

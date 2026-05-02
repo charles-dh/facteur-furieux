@@ -2,9 +2,9 @@
 
 ## Overview
 
-Math Racer is a top-down educational racing game that teaches multiplication tables through engaging, fast-paced gameplay. Players race a car around a track by solving multiplication problems using voice input, with speed rewards for quick, accurate answers.
+Math Racer is an educational racing game that teaches multiplication tables through engaging, fast-paced gameplay. Players race a car around a track by solving multiplication problems using voice input, with speed rewards for quick, accurate answers.
 
-**Visual perspective**: Top-down view (bird's eye), similar to classic arcade racers like Super Sprint or Micro Machines.
+**Visual perspective**: 3/4 perspective view of a tilted track (think classic Sega arcade racers). The car sprite is pre-rendered at 32 angles and scales with depth, so it looks bigger in the foreground and smaller in the background.
 
 ## Target Audience
 
@@ -68,13 +68,13 @@ Transform multiplication practice from rote memorization into an exciting racing
 **Purpose**: Main racing and problem-solving interface
 
 **Layout**:
-- **Center viewport**: Top-down view of racing track with car sprite
+- **Center viewport**: 3/4-perspective view of the racing track with car sprite
 - **Center overlay**: Current multiplication problem with timer bar (displayed over track)
 - **Top-left HUD**: Lap count, accuracy percentage, correct/incorrect count
 - **Top-right HUD**: Lap times (current, last, best), total race time
 - **Top-right corner**: Restart button
 
-**Camera**: Fixed overhead view showing entire track (no scrolling/following)
+**Camera**: Fixed view of the entire tilted track (no scrolling/following). The car's apparent size and per-frame travel scale with its Y position so depth reads correctly.
 
 **Visual Feedback**:
 - Timer bar color changes (green → yellow → red) as time runs out
@@ -92,7 +92,7 @@ Transform multiplication practice from rote memorization into an exciting racing
 
 **Purpose**: Display final results and allow replay
 
-**Triggered by**: Completing 3 laps
+**Triggered by**: Completing the configured number of laps (currently 5; see `GAME.LAPS_TO_COMPLETE` in `src/config/constants.ts`)
 
 **Elements**:
 - "Course Terminée!" (Race Finished) message
@@ -146,13 +146,14 @@ Transform multiplication practice from rote memorization into an exciting racing
 
 ## Game Parameters (MVP)
 
-- **Lap count to complete**: 3 laps
+- **Lap count to complete**: 5 laps (`GAME.LAPS_TO_COMPLETE`)
 - **Problem timer**: 6 seconds
 - **Boost calculation**: Linear mapping (6s remaining = max boost, 0s = no boost)
 - **Wrong answers**: Don't stop timer, player can retry until timeout
-- **Delay after correct answer**: ~0.5 seconds before next problem
-- **Delay after timeout**: ~0.2 seconds before next problem
+- **Delay after correct answer**: brief pause before next problem
+- **Delay after timeout**: brief pause before next problem
 - **Car can stop**: Yes, if momentum is lost (no boost + friction)
+- **Perspective scaling**: Car sprite size and per-frame path advance both scale linearly with the car's Y position on the track image (`CAR.PERSPECTIVE_FAR/NEAR_SCALE`, `PHYSICS.PERSPECTIVE_FAR/NEAR_FACTOR`)
 - **Target browser**: Chrome/Edge (best speech recognition support)
 
 ## Success Metrics
