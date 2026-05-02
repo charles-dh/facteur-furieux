@@ -52,7 +52,11 @@ export default class MenuScene extends Phaser.Scene {
     this.events.on('uikit:hover', () => this.audioManager.playSFX(AUDIO.SFX.MENU_HOVER));
     this.events.on('uikit:click', () => this.audioManager.playSFX(AUDIO.SFX.MENU_CLICK));
 
-    this.add.rectangle(400, 400, 800, 800, 0x004400);
+    // Full-canvas dark-green background. Layout below still uses 800-wide
+    // anchors; the wider canvas just shows extra background on the sides.
+    const w = this.scale.width;
+    const h = this.scale.height;
+    this.add.rectangle(w / 2, h / 2, w, h, 0x004400);
 
     this.drawHeader();
     this.drawNameSection();

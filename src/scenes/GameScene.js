@@ -1,8 +1,9 @@
 import Phaser from "phaser";
 import { COLORS } from "../config/colors.js";
-import { TRACK, CAR, PHYSICS, TIMING } from "../config/constants.js";
+import { TRACK, CAR, PHYSICS, TIMING, GAME } from "../config/constants.js";
 import { AUDIO } from "../config/audioConfig.js";
 import Track from "../systems/Track.js";
+import { TRACK_CONFIG } from "../config/trackConfig.js";
 import VehiclePhysics from "../systems/VehiclePhysics.js";
 import MathProblem from "../systems/MathProblem.js";
 import StatisticsTracker from "../systems/StatisticsTracker.js";
@@ -43,7 +44,8 @@ export default class GameScene extends Phaser.Scene {
    */
   preload() {
     this.load.image("car", "assets/red_car_top.png");
-    this.load.audio(AUDIO.SFX.BOOST, "assets/sports_car_vroooom.mp3");
+    this.load.image(TRACK_CONFIG.IMAGE_KEY, TRACK_CONFIG.IMAGE_PATH);
+    this.load.audio(AUDIO.SFX.BOOST, "assets/sound/sports_car_vroooom.mp3");
 
     // Generate all procedural sound effects and load as base64 data URIs
     const generator = new SoundGenerator();
@@ -69,8 +71,26 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
-    // Background (grass green)
-    this.add.rectangle(400, 400, 800, 800, COLORS.GRASS_GREEN);
+    try {
+      this._create();
+    } catch (err) {
+      // Phaser swallows scene errors silently; rethrow so the global handler
+      // catches it and the on-screen overlay shows the message.
+      console.error('GameScene.create() failed:', err);
+      throw err;
+    }
+  }
+
+  _create() {
+    // Background (grass green) — fills the entire canvas. Track image is
+    // drawn on top by renderTrack().
+    this.add.rectangle(
+      GAME.CANVAS_WIDTH / 2,
+      GAME.CANVAS_HEIGHT / 2,
+      GAME.CANVAS_WIDTH,
+      GAME.CANVAS_HEIGHT,
+      COLORS.GRASS_GREEN,
+    );
 
     // Initialize audio and effects systems
     this.audioManager = new AudioManager(this);
@@ -214,7 +234,8 @@ export default class GameScene extends Phaser.Scene {
    * Three horizontal lights: Red→Yellow→Green with 3-2-1-GO sequence.
    */
   playCountdownSequence() {
-    const centerX = 400;
+    // Centered on the canvas (matches the scoreboard).
+    const centerX = GAME.CANVAS_WIDTH / 2;
     const centerY = 370;
 
     // Three horizontal circles inside the scoreboard
@@ -477,52 +498,68 @@ export default class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Render the circular racing track with dashed lane divider and finish line
+   * Render the racing track by blitting the pre-rendered background image,
+   * scaled and centered to fit the canvas. The Track system computed the
+   * exact same transform when parsing the SVG path, so the rendered image
+   * and the car's path are guaranteed to align.
+   *
+   * Optionally adds a debug overlay (toggled via `P` key) that draws the
+   * resolved path on top of the image — used to verify the SVG trace
+   * matches the road's centerline.
    */
   renderTrack() {
-    const graphics = this.add.graphics();
+    const transform = this.track.getTransform();
 
-    // Main track (thick gray circle)
-    graphics.lineStyle(TRACK.WIDTH, COLORS.TRACK_GRAY);
-    graphics.strokeCircle(400, 400, 320);
+    // Background image, top-left anchored, scaled uniformly.
+    this.add
+      .image(transform.offsetX, transform.offsetY, TRACK_CONFIG.IMAGE_KEY)
+      .setOrigin(0, 0)
+      .setDisplaySize(transform.displayWidth, transform.displayHeight);
 
-    // Dashed lane divider
-    const dashLength = 15;
-    const gapLength = 10;
-    const middleRadius = 320;
-    const centerX = 400;
-    const centerY = 400;
-    const circumference = 2 * Math.PI * middleRadius;
-    const segmentLength = dashLength + gapLength;
-    const numSegments = Math.floor(circumference / segmentLength);
+    // Path debug overlay — hidden by default. Toggle with P to verify the
+    // SVG trace matches the road.
+    this.pathDebugGraphics = this.add.graphics();
+    this.pathDebugGraphics.setDepth(900); // above track, below HUD
+    this.pathDebugGraphics.setVisible(false);
+    this.drawPathDebugOverlay();
 
-    graphics.lineStyle(3, 0xffffff, 0.6);
+    this.input.keyboard.on('keydown-P', () => {
+      this.pathDebugGraphics.setVisible(!this.pathDebugGraphics.visible);
+    });
+  }
 
-    for (let i = 0; i < numSegments; i++) {
-      const startAngle = ((i * segmentLength) / circumference) * Math.PI * 2;
-      const endAngle = startAngle + (dashLength / circumference) * Math.PI * 2;
+  /**
+   * Draw the resolved racing line + sample points + start marker. Called
+   * once after the track is built; the result is static.
+   */
+  drawPathDebugOverlay() {
+    const g = this.pathDebugGraphics;
+    g.clear();
 
-      graphics.beginPath();
-      graphics.arc(
-        centerX,
-        centerY,
-        middleRadius,
-        startAngle - Math.PI / 2,
-        endAngle - Math.PI / 2
-      );
-      graphics.strokePath();
+    // Sample the path densely. We use Track.getPositionAt which has the full
+    // viewBox → image → canvas transform composed; this re-uses the same
+    // path the car actually drives along (single source of truth).
+    g.lineStyle(3, 0xff00ff, 0.9); // bright magenta — easy to see on grass/road
+    g.beginPath();
+    const N = 400;
+    for (let i = 0; i < N; i++) {
+      const pos = this.track.getPositionAt(i / (N - 1));
+      if (i === 0) g.moveTo(pos.x, pos.y);
+      else g.lineTo(pos.x, pos.y);
+    }
+    g.strokePath();
+
+    // Draw a green dot every 10% of progress to make direction obvious.
+    g.fillStyle(0x00ff00, 1.0);
+    for (let pct = 0; pct < 1; pct += 0.1) {
+      const pos = this.track.getPositionAt(pct);
+      g.fillCircle(pos.x, pos.y, 5);
     }
 
-    // Start/finish line (white bar perpendicular to track at progress = 0)
-    const startPos = this.track.getPositionAt(0);
-    const startFinishRect = this.add.rectangle(
-      startPos.x,
-      startPos.y,
-      5,
-      TRACK.START_FINISH_HEIGHT,
-      COLORS.TRACK_LINE_WHITE
-    );
-    startFinishRect.setRotation(startPos.angle);
+    // Big yellow dot + perpendicular bar at the start/finish line.
+    const start = this.track.getPositionAt(TRACK_CONFIG.START_PROGRESS);
+    g.fillStyle(0xffff00, 1.0);
+    g.fillCircle(start.x, start.y, 10);
   }
 
   /**

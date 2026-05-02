@@ -32,8 +32,15 @@ export const BOOST = {
 
 export const GAME = {
   LAPS_TO_COMPLETE: 5,
-  CANVAS_WIDTH: 800,
-  CANVAS_HEIGHT: 800,
+  /**
+   * Logical canvas size. Aspect ratio matches the track background image
+   * (assets/perspective/FactorFuriousTraccHD.png — 1698×926, ~16:8.7).
+   * Phaser's Scale.FIT (set in gameConfig.ts) scales this to fit the window
+   * while preserving aspect ratio, so devices see this exact aspect ratio
+   * with letterboxing as needed.
+   */
+  CANVAS_WIDTH: 1280,
+  CANVAS_HEIGHT: 698,
 } as const;
 
 export const TRACK = {

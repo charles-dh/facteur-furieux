@@ -112,7 +112,9 @@ export default class ParticleEffects {
     });
 
     // Also add a full-screen green flash overlay
-    const flash = this.scene.add.rectangle(400, 400, 800, 800, 0x00ff00, 0.2);
+    const w = this.scene.scale.width;
+    const h = this.scene.scale.height;
+    const flash = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x00ff00, 0.2);
     this.scene.tweens.add({
       targets: flash,
       alpha: 0,
@@ -126,7 +128,9 @@ export default class ParticleEffects {
    */
   createIncorrectFlash() {
     // Red flash overlay
-    const flash = this.scene.add.rectangle(400, 400, 800, 800, 0xff0000, 0.3);
+    const w = this.scene.scale.width;
+    const h = this.scene.scale.height;
+    const flash = this.scene.add.rectangle(w / 2, h / 2, w, h, 0xff0000, 0.3);
     this.scene.tweens.add({
       targets: flash,
       alpha: 0,

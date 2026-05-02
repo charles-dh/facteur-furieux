@@ -14,8 +14,10 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: {
-    pixelArt: true, // crisp retro rendering
-    antialias: false,
+    // Smooth scaling for the cartoon track image. Was pixelArt:true for the
+    // 8-bit retro look; flipped now that assets are illustrated.
+    pixelArt: false,
+    antialias: true,
   },
   audio: {
     noAudio: false,

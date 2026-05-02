@@ -62,8 +62,10 @@ export default class LeaderboardScene extends Phaser.Scene {
     // Initialize leaderboard manager
     this.leaderboard = new LeaderboardManager();
 
-    // Background (dark green)
-    this.add.rectangle(400, 400, 800, 800, 0x004400);
+    // Background (dark green) — fills full canvas.
+    const w = this.scale.width;
+    const h = this.scale.height;
+    this.add.rectangle(w / 2, h / 2, w, h, 0x004400);
 
     // Title
     this.add.text(400, 60, 'MEILLEURS TEMPS', {

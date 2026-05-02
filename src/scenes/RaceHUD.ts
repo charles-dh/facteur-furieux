@@ -31,8 +31,9 @@ export interface HUDFrameData {
   velocity: number;
 }
 
+// Scoreboard X is computed at create() time from canvas width so the HUD
+// stays centered when the canvas size changes. Y is anchored from the top.
 const SCOREBOARD = {
-  X: 400,
   Y: 370,
   WIDTH: 460,
   HEIGHT: 260,
@@ -85,9 +86,14 @@ export default class RaceHUD {
     this.createRestartButton();
   }
 
+  /** Canvas-center X — used to center the scoreboard, problem text, etc. */
+  private get cx(): number {
+    return this.scene.scale.width / 2;
+  }
+
   private createScoreboard(): void {
-    const { X, Y, WIDTH, HEIGHT, CORNER_RADIUS } = SCOREBOARD;
-    const left = X - WIDTH / 2;
+    const { Y, WIDTH, HEIGHT, CORNER_RADIUS } = SCOREBOARD;
+    const left = this.cx - WIDTH / 2;
     const top = Y - HEIGHT / 2;
 
     this.scoreboardBg = this.scene.add.graphics();
@@ -100,8 +106,9 @@ export default class RaceHUD {
   }
 
   private createProblemArea(): void {
+    const cx = this.cx;
     this.problemText = this.scene.add
-      .text(400, 300, '', {
+      .text(cx, 300, '', {
         fontFamily: '"Press Start 2P"',
         fontSize: '32px',
         color: '#ffffff',
@@ -110,13 +117,13 @@ export default class RaceHUD {
       })
       .setOrigin(0.5);
 
-    this.timerBarBg = this.scene.add.rectangle(400, 370, TIMER_BAR_WIDTH, 20, 0x333333);
+    this.timerBarBg = this.scene.add.rectangle(cx, 370, TIMER_BAR_WIDTH, 20, 0x333333);
     this.timerBarFill = this.scene.add
-      .rectangle(400, 370, TIMER_BAR_WIDTH, 20, COLORS.TIMER_GREEN)
+      .rectangle(cx, 370, TIMER_BAR_WIDTH, 20, COLORS.TIMER_GREEN)
       .setOrigin(0.5);
 
     this.answerText = this.scene.add
-      .text(400, 450, '', {
+      .text(cx, 450, '', {
         fontFamily: '"Press Start 2P"',
         fontSize: '24px',
         color: '#ffff00',
@@ -126,7 +133,7 @@ export default class RaceHUD {
       .setOrigin(0.5);
 
     this.feedbackText = this.scene.add
-      .text(400, 450, '', {
+      .text(cx, 450, '', {
         fontFamily: '"Press Start 2P"',
         fontSize: '16px',
         color: '#00ff00',
@@ -154,7 +161,7 @@ export default class RaceHUD {
     });
 
     this.lapTimesText = this.scene.add
-      .text(780, 20, '', {
+      .text(this.scene.scale.width - 20, 20, '', {
         fontFamily: '"Press Start 2P"',
         fontSize: '12px',
         color: '#ffffff',
@@ -166,7 +173,7 @@ export default class RaceHUD {
 
     // Total time — prominent, centered above the scoreboard.
     this.totalTimeText = this.scene.add
-      .text(400, 215, '0.000s', {
+      .text(this.cx, 215, '0.000s', {
         fontFamily: '"Press Start 2P"',
         fontSize: '20px',
         color: '#ffffff',
@@ -177,7 +184,7 @@ export default class RaceHUD {
   }
 
   private createSpeedAndDebug(): void {
-    this.speedText = this.scene.add.text(20, 760, 'Speed: 0.00', {
+    this.speedText = this.scene.add.text(20, this.scene.scale.height - 40, 'Speed: 0.00', {
       fontFamily: '"Press Start 2P"',
       fontSize: '14px',
       color: '#ffff00',
@@ -199,7 +206,7 @@ export default class RaceHUD {
 
   private createRestartButton(): void {
     const button = this.scene.add
-      .text(760, 110, '[ ↻ ]', {
+      .text(this.scene.scale.width - 40, 110, '[ ↻ ]', {
         fontFamily: '"Press Start 2P"',
         fontSize: '20px',
         color: '#ff6666',
@@ -343,7 +350,7 @@ export default class RaceHUD {
   /** Blue "passing through" answer that grows and fades — celebration only. */
   playCorrectAnswerAnimation(answer: number): void {
     const ghost = this.scene.add
-      .text(400, 430, String(answer), {
+      .text(this.cx, 430, String(answer), {
         fontFamily: '"Press Start 2P"',
         fontSize: '24px',
         color: '#00aaff',
@@ -367,7 +374,7 @@ export default class RaceHUD {
 
   showMicStatus(): void {
     this.micStatusText = this.scene.add
-      .text(400, 530, '🎤 Écoute...', {
+      .text(this.cx, 530, '🎤 Écoute...', {
         fontFamily: '"Press Start 2P"',
         fontSize: '12px',
         color: '#555555',

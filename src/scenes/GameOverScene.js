@@ -81,8 +81,10 @@ export default class GameOverScene extends Phaser.Scene {
       totalAnswers: this.results.totalAnswers
     });
 
-    // Background (dark green to match game aesthetic)
-    this.add.rectangle(400, 400, 800, 800, 0x004400);
+    // Background (dark green to match game aesthetic) — fills full canvas.
+    const w = this.scale.width;
+    const h = this.scale.height;
+    this.add.rectangle(w / 2, h / 2, w, h, 0x004400);
 
     // Title (with special message if new high score)
     let titleText = 'COURSE TERMINÉE!';
