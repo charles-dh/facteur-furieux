@@ -51,6 +51,20 @@ export const TRACK = {
 } as const;
 
 export const CAR = {
-  WIDTH: 25,
-  HEIGHT: 36,
+  /**
+   * Display size of the car sprite, in canvas pixels. The 3/4-perspective
+   * sprites are 250×250 with the car silhouette occupying ~50% of the frame;
+   * displaying the whole 250×250 quad at this size puts the visible car at
+   * roughly half the WIDTH/HEIGHT. Adjust if the car looks too big or small
+   * relative to the road width.
+   */
+  WIDTH: 130,
+  HEIGHT: 130,
+
+  /**
+   * Number of pre-rendered angle frames in the car spritesheet (every 360/N
+   * degrees, clockwise from straight-up). Files live under
+   * assets/perspective/car/car_NNN.png where NNN is the angle in degrees.
+   */
+  NUM_ANGLE_FRAMES: 24,
 } as const;

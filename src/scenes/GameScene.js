@@ -4,6 +4,7 @@ import { TRACK, CAR, PHYSICS, TIMING, GAME } from "../config/constants.js";
 import { AUDIO } from "../config/audioConfig.js";
 import Track from "../systems/Track.js";
 import { TRACK_CONFIG } from "../config/trackConfig.js";
+import { frameIndexForHeading, carTextureKey, carAssetPath } from "../systems/carSprite.js";
 import VehiclePhysics from "../systems/VehiclePhysics.js";
 import MathProblem from "../systems/MathProblem.js";
 import StatisticsTracker from "../systems/StatisticsTracker.js";
@@ -43,7 +44,11 @@ export default class GameScene extends Phaser.Scene {
    * Preload assets: car sprite, boost sound, and procedural sound effects
    */
   preload() {
-    this.load.image("car", "assets/red_car_top.png");
+    // Pre-rendered 3/4-perspective car frames — one PNG per angle. Keys
+    // follow `car_NNN` where NNN = 0,15,30,...,345 (clockwise from up).
+    for (let i = 0; i < CAR.NUM_ANGLE_FRAMES; i++) {
+      this.load.image(carTextureKey(i), carAssetPath(i));
+    }
     this.load.image(TRACK_CONFIG.IMAGE_KEY, TRACK_CONFIG.IMAGE_PATH);
     this.load.audio(AUDIO.SFX.BOOST, "assets/sound/sports_car_vroooom.mp3");
 
@@ -564,36 +569,39 @@ export default class GameScene extends Phaser.Scene {
 
   /**
    * Create the car sprite and boost particle emitter
+   *
+   * The car is a static sprite (no rotation): we swap its texture to one of
+   * the pre-rendered 3/4-angle frames each tick based on the heading. Because
+   * the visual rotation is baked into the frames, we never call setRotation.
+   * The car's *world* heading is tracked in this.carHeading so the boost
+   * exhaust direction stays correct.
    */
   createCar() {
-    this.car = this.add.sprite(0, 0, "car");
+    const startPos = this.track.getPositionAt(0);
+
+    this.carHeading = startPos.angle;
+    const startFrame = frameIndexForHeading(startPos.angle);
+
+    this.car = this.add.sprite(startPos.x, startPos.y, carTextureKey(startFrame));
     this.car.setOrigin(0.5, 0.5);
     this.car.setDisplaySize(CAR.WIDTH, CAR.HEIGHT);
+    // Render above the track image so the car is always visible.
+    this.car.setDepth(500);
 
-    // Position car at the start/finish line
-    const startPos = this.track.getPositionAt(0);
-    this.car.setPosition(startPos.x, startPos.y);
-    // Add PI/2 because sprite points up but track tangent assumes pointing right
-    this.car.setRotation(startPos.angle + Math.PI / 2);
+    // Boost particle emitter (initially stopped)
+    this.boostEmitter = this.particleEffects.createSpeedBoost(startPos.x, startPos.y);
 
-    // Create boost particle emitter (initially stopped)
-    this.boostEmitter = this.particleEffects.createSpeedBoost(
-      startPos.x,
-      startPos.y
-    );
-
-    // Reusable vector for exhaust position calculation
     this.exhaustOffsetVec = new Phaser.Math.Vector2(0, 0);
     this.boostEmitterTimer = 0;
 
-    // Dynamic angle callback: particles emit backwards from car
+    // Dynamic angle callback: particles emit backwards from the car.
+    // Backwards = heading + 180°. Heading is in radians (Phaser convention,
+    // 0 = right); the particle emitter wants degrees.
     this.boostEmitter.ops.angle.loadConfig({
       angle: {
         onEmit: () => {
-          // Car rotation has +90° baked in; another +90° gives exhaust direction
-          const backwardsAngleRadians = this.car.rotation + Math.PI / 2;
-          const backwardsAngleDegrees = Phaser.Math.RadToDeg(backwardsAngleRadians);
-          return backwardsAngleDegrees + Phaser.Math.Between(-15, 15);
+          const backwardDeg = Phaser.Math.RadToDeg(this.carHeading) + 180;
+          return backwardDeg + Phaser.Math.Between(-15, 15);
         },
       },
     });
@@ -616,15 +624,25 @@ export default class GameScene extends Phaser.Scene {
     this.mathProblem.updateTimer(delta);
     this.updateTimerBar();
 
-    // Position car on track
+    // Position the car on the track. We don't rotate the sprite — instead we
+    // pick the closest pre-rendered 3/4-angle frame for the current heading.
     const position = this.track.getPositionAt(this.vehiclePhysics.position);
     this.car.setPosition(position.x, position.y);
-    const carRotation = position.angle + Math.PI / 2;
-    this.car.setRotation(carRotation);
+    this.carHeading = position.angle;
+    const frameIndex = frameIndexForHeading(position.angle);
+    const key = carTextureKey(frameIndex);
+    if (this.car.texture.key !== key) {
+      this.car.setTexture(key);
+      // setTexture resets display size, so re-apply.
+      this.car.setDisplaySize(CAR.WIDTH, CAR.HEIGHT);
+    }
 
-    // Update boost emitter position (rear of car)
+    // Boost emitter sits behind the car along the heading direction.
+    // "Behind" in Phaser = heading + 180°; rotating (0, rearOffset) by the
+    // backward angle gives the offset vector.
     const rearOffset = this.car.displayHeight / 2 + 15;
-    this.exhaustOffsetVec.set(0, rearOffset).rotate(carRotation);
+    const backwardAngle = this.carHeading + Math.PI;
+    this.exhaustOffsetVec.set(rearOffset, 0).rotate(backwardAngle);
     this.boostEmitter.setPosition(
       position.x + this.exhaustOffsetVec.x,
       position.y + this.exhaustOffsetVec.y
