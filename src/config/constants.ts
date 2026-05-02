@@ -3,13 +3,23 @@
 
 export const PHYSICS = {
   /** Maximum velocity in track-progress per second (0-1 scale). */
-  MAX_SPEED: 1.3,
-  /** Per-frame multiplicative friction (0.99 = retain 99% per frame). */
+  MAX_SPEED: 0.9,
+  /** Per-frame multiplicative friction (0.97 = retain 97% per frame). */
   FRICTION: 0.99,
   /** Base acceleration added per boost (progress per second²). */
-  BASE_ACCELERATION: 0.18,
+  BASE_ACCELERATION: 0.10,
   /** Cars can come to a full stop. */
   MIN_VELOCITY: 0,
+  /**
+   * Perspective speed scaling. The track is rendered with a tilted 3/4-view,
+   * so the same path-progress covers fewer screen pixels at the top of the
+   * image (far) than at the bottom (near). To make the car *feel* the right
+   * speed at every depth, we multiply the integration step by a factor that
+   * is FAR_FACTOR at the top of the track and NEAR_FACTOR at the bottom.
+   * Tune these to taste.
+   */
+  PERSPECTIVE_FAR_FACTOR: 0.45,
+  PERSPECTIVE_NEAR_FACTOR: 1.15,
 } as const;
 
 export const TIMING = {
@@ -53,18 +63,28 @@ export const TRACK = {
 export const CAR = {
   /**
    * Display size of the car sprite, in canvas pixels. The 3/4-perspective
-   * sprites are 250×250 with the car silhouette occupying ~50% of the frame;
-   * displaying the whole 250×250 quad at this size puts the visible car at
-   * roughly half the WIDTH/HEIGHT. Adjust if the car looks too big or small
-   * relative to the road width.
+   * sprites are 500×500 with the car silhouette occupying ~50% of the frame;
+   * displaying the whole quad at this size puts the visible car at roughly
+   * half the WIDTH/HEIGHT. setDisplaySize is enforced every frame so the
+   * source resolution doesn't affect on-screen size — the doubled source
+   * just gives sharper sprites under the perspective zoom.
    */
-  WIDTH: 130,
-  HEIGHT: 130,
+  WIDTH: 150,
+  HEIGHT: 150,
 
   /**
    * Number of pre-rendered angle frames in the car spritesheet (every 360/N
    * degrees, clockwise from straight-up). Files live under
    * assets/perspective/car/car_NNN.png where NNN is the angle in degrees.
    */
-  NUM_ANGLE_FRAMES: 24,
+  NUM_ANGLE_FRAMES: 32,
+
+  /**
+   * Perspective size scaling. The track is viewed in 3/4 perspective, so the
+   * sprite needs to shrink at the top of the image (far) and grow at the
+   * bottom (near). Linearly interpolated between FAR and NEAR by the car's
+   * Y position on the track image. Multiplied with WIDTH/HEIGHT each frame.
+   */
+  PERSPECTIVE_FAR_SCALE: 0.55,
+  PERSPECTIVE_NEAR_SCALE: 1.35,
 } as const;

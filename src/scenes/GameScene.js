@@ -584,7 +584,10 @@ export default class GameScene extends Phaser.Scene {
 
     this.car = this.add.sprite(startPos.x, startPos.y, carTextureKey(startFrame));
     this.car.setOrigin(0.5, 0.5);
-    this.car.setDisplaySize(CAR.WIDTH, CAR.HEIGHT);
+    // Apply the same perspective size we use during update(), so the car
+    // doesn't jump scale when the countdown ends and update() takes over.
+    const startSizeScale = this.computeSizeScale(startPos.y);
+    this.car.setDisplaySize(CAR.WIDTH * startSizeScale, CAR.HEIGHT * startSizeScale);
     // Render above the track image so the car is always visible.
     this.car.setDepth(500);
 
@@ -616,26 +619,52 @@ export default class GameScene extends Phaser.Scene {
 
     this.raceState.advanceTime(delta);
 
-    // Physics
-    this.vehiclePhysics.update(delta);
+    // Physics. The perspective factor is derived from the car's current Y
+    // on the track image: top of image = far (slower), bottom = near (faster).
+    // Uses last frame's Y, which is fine — perspective changes smoothly.
+    const perspectiveFactor = this.computePerspectiveFactor(this.car.y);
+    this.vehiclePhysics.update(delta, perspectiveFactor);
     this.detectLapCompletion();
 
     // Problem timer
     this.mathProblem.updateTimer(delta);
     this.updateTimerBar();
 
-    // Position the car on the track. We don't rotate the sprite — instead we
-    // pick the closest pre-rendered 3/4-angle frame for the current heading.
-    const position = this.track.getPositionAt(this.vehiclePhysics.position);
+    // Position the car on the track using a "bicycle-model" look-ahead:
+    // sample two points on the path — one half-wheelbase behind the current
+    // progress (rear axle) and one half-wheelbase ahead (front axle) — and
+    // place the sprite at their midpoint, heading along the rear→front line.
+    // Without this, the sprite pivots around its center on tight curves.
+    // With it, the front wheel traces a smooth arc and the rear swings out
+    // naturally, just like a real car.
+    //
+    // CAR_WHEELBASE_PROGRESS = wheelbase in track-progress units. CAR.WIDTH
+    // is the sprite's display width in canvas pixels; track.length is the
+    // path length in canvas pixels. We use ~60% of CAR.WIDTH as the
+    // effective wheelbase (axles sit inside the sprite, not at its edges).
+    const wheelbasePixels = CAR.WIDTH * 0.6;
+    const halfWheelbase = (wheelbasePixels * 0.5) / this.track.length;
+    const t = this.vehiclePhysics.position;
+    const rear = this.track.getPositionAt(t - halfWheelbase);
+    const front = this.track.getPositionAt(t + halfWheelbase);
+    const cx = (rear.x + front.x) / 2;
+    const cy = (rear.y + front.y) / 2;
+    const heading = Math.atan2(front.y - rear.y, front.x - rear.x);
+    const position = { x: cx, y: cy, angle: heading };
     this.car.setPosition(position.x, position.y);
     this.carHeading = position.angle;
     const frameIndex = frameIndexForHeading(position.angle);
     const key = carTextureKey(frameIndex);
+    // Perspective size: shrink the sprite at the top of the track (far) and
+    // grow it at the bottom (near). Same Y-based interpolation as the speed
+    // factor, just with different endpoints.
+    const sizeScale = this.computeSizeScale(position.y);
     if (this.car.texture.key !== key) {
       this.car.setTexture(key);
-      // setTexture resets display size, so re-apply.
-      this.car.setDisplaySize(CAR.WIDTH, CAR.HEIGHT);
     }
+    // Re-apply every frame: setTexture resets display size, AND the sizeScale
+    // changes continuously as the car moves through depth.
+    this.car.setDisplaySize(CAR.WIDTH * sizeScale, CAR.HEIGHT * sizeScale);
 
     // Boost emitter sits behind the car along the heading direction.
     // "Behind" in Phaser = heading + 180°; rotating (0, rearOffset) by the
@@ -668,6 +697,37 @@ export default class GameScene extends Phaser.Scene {
       velocity: this.vehiclePhysics.velocity,
     });
     this.updateDebug();
+  }
+
+  /**
+   * Map a canvas-Y coordinate to a perspective speed multiplier. Top of the
+   * track image = far = FAR_FACTOR (slow); bottom = near = NEAR_FACTOR (fast).
+   * Linear interpolation; clamped so coords just outside the image still
+   * yield sane values.
+   */
+  computePerspectiveFactor(y) {
+    const t = this.track.getTransform();
+    const norm = Phaser.Math.Clamp((y - t.offsetY) / t.displayHeight, 0, 1);
+    return Phaser.Math.Linear(
+      PHYSICS.PERSPECTIVE_FAR_FACTOR,
+      PHYSICS.PERSPECTIVE_NEAR_FACTOR,
+      norm,
+    );
+  }
+
+  /**
+   * Sister of computePerspectiveFactor — same Y-based normalization, but
+   * mapped to the size-scale endpoints (CAR.PERSPECTIVE_FAR/NEAR_SCALE).
+   * Extracted so the constructor and update() apply identical sizing.
+   */
+  computeSizeScale(y) {
+    const t = this.track.getTransform();
+    const norm = Phaser.Math.Clamp((y - t.offsetY) / t.displayHeight, 0, 1);
+    return Phaser.Math.Linear(
+      CAR.PERSPECTIVE_FAR_SCALE,
+      CAR.PERSPECTIVE_NEAR_SCALE,
+      norm,
+    );
   }
 
   /**
